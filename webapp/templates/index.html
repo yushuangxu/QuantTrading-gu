@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>股票量化监控面板</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js">
+</script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:#0d1117;color:#c9d1d9;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.header{background:#161b22;border-bottom:1px solid #30363d;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.header h1{font-size:16px;color:#58a6ff;display:flex;align-items:center;gap:8px}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
+.dot.online{background:#3fb950;box-shadow:0 0 6px #3fb950}
+.dot.offline{background:#f85149;box-shadow:0 0 6px #f85149}
+.header .info{font-size:12px;color:#8b949e;display:flex;gap:16px}
+.header .info strong{color:#c9d1d9}
+.main{display:flex;flex:1;overflow:hidden}
+.sidebar{width:260px;background:#161b22;border-right:1px solid #30363d;display:flex;flex-direction:column;flex-shrink:0;overflow:hidden}
+.sidebar-nav{display:flex;border-bottom:1px solid #30363d;flex-shrink:0}
+.sidebar-nav button{flex:1;background:none;border:none;color:#8b949e;padding:8px 4px;font-size:11px;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s}
+.sidebar-nav button:hover{color:#c9d1d9}
+.sidebar-nav button.active{color:#58a6ff;border-bottom-color:#58a6ff}
+.sidebar-content{flex:1;overflow-y:auto;padding:8px}
+.stock-item{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:4px;cursor:pointer;transition:background .15s;margin-bottom:2px}
+.stock-item:hover{background:#21262d}
+.stock-item.selected{background:#1f2a40;border-left:2px solid #58a6ff}
+.stock-item .code{font-weight:600;font-size:13px;color:#58a6ff;font-family:'Consolas','Courier New',monospace}
+.stock-item .name{font-size:12px;color:#8b949e;flex:1;margin-left:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stock-item .del-btn{background:none;border:none;color:#484f58;cursor:pointer;font-size:14px;padding:2px 4px;border-radius:3px;line-height:1;opacity:0;transition:all .15s}
+.stock-item:hover .del-btn{opacity:1}
+.stock-item .del-btn:hover{color:#f85149;background:#2d151a}
+.add-row{display:flex;gap:6px;padding:8px 0;border-top:1px solid #21262d;margin-top:6px}
+.add-row input{flex:1;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:6px 8px;border-radius:4px;font-size:11px;outline:none;font-family:'Consolas','Courier New',monospace;min-width:0}
+.add-row input:focus{border-color:#58a6ff}
+.add-row input::placeholder{color:#484f58;font-family:'PingFang SC','Microsoft YaHei',sans-serif;font-size:10px}
+.add-row button{background:#238636;color:#fff;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap}
+.add-row button:hover{background:#2ea043}
+.content{flex:1;overflow-y:auto;padding:12px 16px}
+.chart-section{margin-bottom:12px}
+.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.chart-box{background:#161b22;border:1px solid #30363d;border-radius:6px;overflow:hidden}
+.chart-box.full{grid-column:1/-1}
+.chart-title{font-size:12px;color:#8b949e;padding:8px 12px;border-bottom:1px solid #30363d;display:flex;align-items:center;gap:8px}
+.chart-title .val{color:#c9d1d9;font-weight:600}
+.chart-title .up{color:#da3633}
+.chart-title .down{color:#3fb950}
+.chart-body{height:280px}
+.chart-body.half{height:200px}
+.indicator-panel{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px;margin-bottom:10px}
+.ind-card{background:#161b22;border:1px solid #30363d;border-radius:4px;padding:8px 10px;text-align:center}
+.ind-card .label{font-size:10px;color:#8b949e}
+.ind-card .value{font-size:14px;font-weight:600;margin-top:2px}
+.ind-card .value.red{color:#da3633}
+.ind-card .value.green{color:#3fb950}
+.ind-card .value.blue{color:#58a6ff}
+.signal-item{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid #21262d;font-size:12px}
+.signal-item .sig-type{font-size:11px;padding:1px 6px;border-radius:3px;font-weight:600;white-space:nowrap}
+.signal-item .sig-type.buy{background:rgba(218,54,51,.2);color:#da3633}
+.signal-item .sig-type.sell{background:rgba(63,185,80,.2);color:#3fb950}
+.empty-state{text-align:center;color:#484f58;padding:40px;font-size:13px}
+.empty-state .icon{font-size:36px;margin-bottom:8px}
+.log-lines{font-family:'Consolas','Courier New',monospace;font-size:10px;line-height:1.5;white-space:pre-wrap;word-break:break-all;color:#8b949e}
+.log-lines .hl{color:#da3633}
+.toast{position:fixed;top:12px;right:12px;z-index:999;padding:8px 14px;border-radius:6px;font-size:12px;animation:fadeIn .3s}
+.toast.success{background:#1a3329;border:1px solid #3fb950;color:#3fb950}
+.toast.error{background:#2d151a;border:1px solid #f85149;color:#f85149}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:768px){.sidebar{display:none}.chart-row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<header class="header">
+<h1><span class="dot online" id="statusDot"></span>股票量化监控面板</h1>
+<div class="info">
+    <span>监控: <strong id="daemonStatus">--</strong></span>
+    <span>市场: <strong id="marketStatus">--</strong></span>
+    <span id="refreshLabel" style="font-size:11px;color:#484f58">5s</span>
+</div>
+</header>
+
+<div class="main">
+<aside class="sidebar">
+<div class="sidebar-nav">
+    <button class="active" data-tab="pool">股票池</button>
+    <button data-tab="signal">信号</button>
+    <button data-tab="log">日志</button>
+</div>
+<div class="sidebar-content" id="sidebarContent"></div>
+</aside>
+
+<section class="content" id="mainContent">
+<div class="empty-state"><div class="icon">📊</div>点击左侧股票查看 K 线和技术指标</div>
+</section>
+</div>
+
+<script>
+const BASE = window.location.pathname.replace(/\/+$/, '');
+const RED = '#da3633', GREEN = '#3fb950', BLUE = '#58a6ff';
+let activeTab = 'pool', selectedCode = '', poolsData = {pool1:[],pool2:[]};
+let klineChart, macdChart, kdjChart;
+let refreshTimer = 5;
+
+function toast(msg, type='info') {
+    const t = document.createElement('div');
+    t.className = 'toast ' + type;
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 2500);
+}
+
+async function api(url, opts={}) {
+    try {
+        const r = await fetch(url, {headers:{'Content-Type':'application/json'}, ...opts});
+        return await r.json();
+    } catch(e) { return null; }
+}
+
+// ==================== 刷新 ====================
+async function refresh() {
+    await Promise.all([loadStatus(), loadPools()]);
+    if (selectedCode) await loadStockChart(selectedCode);
+    refreshTimer = 5;
+    document.getElementById('refreshLabel').textContent = refreshTimer + 's';
+}
+
+setInterval(() => {
+    refreshTimer--;
+    document.getElementById('refreshLabel').textContent = refreshTimer + 's';
+    if (refreshTimer <= 0) { refresh(); refreshTimer = 5; }
+}, 1000);
+
+// ==================== 状态 ====================
+async function loadStatus() {
+    const d = await api(BASE + '/api/status');
+    if (!d) return;
+    const dot = document.getElementById('statusDot');
+    dot.className = 'dot ' + (d.daemon ? 'online' : 'offline');
+    document.getElementById('daemonStatus').innerHTML = d.daemon
+        ? '<span style="color:#3fb950">运行中</span>'
+        : '<span style="color:#f85149">已停止</span>';
+    document.getElementById('marketStatus').textContent = d.market || '--';
+}
+
+// ==================== 股票池 ====================
+async function loadPools() {
+    const d = await api(BASE + '/api/pools');
+    if (!d) return;
+    poolsData = d;
+    if (activeTab === 'pool') renderSidebar();
+}
+
+function renderSidebar() {
+    const el = document.getElementById('sidebarContent');
+    if (activeTab === 'pool') {
+        el.innerHTML = `
+        <div style="margin-bottom:12px">
+            <div style="font-size:11px;color:#8b949e;margin-bottom:6px;font-weight:600">自选池 (${poolsData.pool1.length})</div>
+            ${poolsData.pool1.map(s => stockItemHTML(s,1)).join('')}
+            <div class="add-row">
+                <input placeholder="代码.SH/SZ" id="addCode1" maxlength="9">
+                <input placeholder="名称" id="addName1" maxlength="20" style="max-width:80px">
+                <button onclick="addStock(1)">+</button>
+            </div>
+        </div>
+        <div>
+            <div style="font-size:11px;color:#8b949e;margin-bottom:6px;font-weight:600">股长池 (${poolsData.pool2.length})</div>
+            ${poolsData.pool2.map(s => stockItemHTML(s,2)).join('')}
+            <div class="add-row">
+                <input placeholder="代码.SH/SZ" id="addCode2" maxlength="9">
+                <input placeholder="名称" id="addName2" maxlength="20" style="max-width:80px">
+                <button onclick="addStock(2)">+</button>
+            </div>
+        </div>`;
+    } else if (activeTab === 'signal') {
+        loadSignalsSidebar();
+    } else if (activeTab === 'log') {
+        loadLogsSidebar();
+    }
+}
+
+function stockItemHTML(s, poolId) {
+    const sel = s.code === selectedCode ? ' selected' : '';
+    return `<div class="stock-item${sel}" onclick="selectStock('${s.code}')">
+        <span class="code">${s.code}</span>
+        <span class="name">${s.name}</span>
+        <button class="del-btn" onclick="event.stopPropagation();removeStock(${poolId},'${s.code}')">×</button>
+    </div>`;
+}
+
+async function addStock(poolId) {
+    const code = document.getElementById('addCode'+poolId).value.trim();
+    const name = document.getElementById('addName'+poolId).value.trim();
+    if (!code) return toast('请输入代码', 'error');
+    if (!/^\d{6}\.(SH|SZ)$/i.test(code)) return toast('格式: 601869.SH', 'error');
+    const d = await api(BASE + '/api/pool/' + poolId + '/add', {
+        method:'POST', body:JSON.stringify({code:code.toUpperCase(), name})
+    });
+    if (d?.ok) { toast('已添加 '+d.code, 'success'); loadPools(); }
+    else toast(d?.error||'失败', 'error');
+}
+
+async function removeStock(poolId, code) {
+    if (!confirm('删除 ' + code + '？')) return;
+    const d = await api(BASE + '/api/pool/' + poolId + '/remove', {
+        method:'POST', body:JSON.stringify({code})
+    });
+    if (d?.ok) { if (selectedCode === code) selectStock(''); toast('已删除 '+code, 'success'); loadPools(); }
+    else toast(d?.error||'失败', 'error');
+}
+
+// ==================== 信号 ====================
+async function loadSignalsSidebar() {
+    const el = document.getElementById('sidebarContent');
+    const d = await api(BASE + '/api/signals');
+    if (!d?.signals?.length) { el.innerHTML = '<div class="empty-state" style="padding:20px">今日暂无信号</div>'; return; }
+    el.innerHTML = d.signals.map(s => `
+        <div class="signal-item">
+            <span class="sig-type ${s.type==='买入'?'buy':'sell'}">${s.type}</span>
+            <span class="code" style="font-size:12px">${s.code}</span>
+            <span style="font-size:11px;color:#8b949e;flex:1">${s.detail}</span>
+            <span style="font-size:10px;color:#484f58">${s.time.split(' ')[1]}</span>
+        </div>`).join('');
+}
+
+async function loadLogsSidebar() {
+    const el = document.getElementById('sidebarContent');
+    const d = await api(BASE + '/api/log/tail?lines=60');
+    if (!d?.lines?.length) { el.innerHTML = '<div class="empty-state" style="padding:20px">暂无日志</div>'; return; }
+    el.innerHTML = '<div class="log-lines">' + d.lines.map(l => {
+        const hl = /B=True|S=True|JB=True|JS=True|底=True|顶=True|买入|卖出/.test(l) ? ' hl' : '';
+        const div = document.createElement('div'); div.textContent = l;
+        return `<span class="${hl}">${div.innerHTML}</span>`;
+    }).join('\n') + '</div>';
+}
+
+// ==================== 股票详情 ====================
+async function selectStock(code) {
+    selectedCode = code;
+    renderSidebar();
+    if (!code) { document.getElementById('mainContent').innerHTML = '<div class="empty-state"><div class="icon">📊</div>点击左侧股票查看 K 线和技术指标</div>'; return; }
+    document.getElementById('mainContent').innerHTML = `
+        <div class="indicator-panel" id="indPanel">加载中...</div>
+        <div class="chart-box" style="margin-bottom:10px">
+            <div class="chart-title" id="klineTitle">${code} 分钟 K线</div>
+            <div class="chart-body" id="klineChart"></div>
+        </div>
+        <div class="chart-row">
+            <div class="chart-box"><div class="chart-title">MACD</div><div class="chart-body half" id="macdChart"></div></div>
+            <div class="chart-box"><div class="chart-title">KDJ</div><div class="chart-body half" id="kdjChart"></div></div>
+        </div>`;
+    await loadStockChart(code);
+}
+
+async function loadStockChart(code) {
+    const d = await api(BASE + '/api/stock/' + code.replace('.','%2E') + '/bars');
+    if (!d?.bars?.length) {
+        document.getElementById('mainContent').innerHTML = '<div class="empty-state"><div class="icon">📭</div>' + code + ' 暂无今日数据</div>';
+        return;
+    }
+    renderIndicators(d.indicators, d.bars[d.bars.length-1]);
+    renderKline(code, d.bars, d.macd, d.kdj, d.signals);
+}
+
+function renderIndicators(ind, bar) {
+    if (!ind) return;
+    const p = bar ? bar.close : 0;
+    const prevP = p;
+    const color = p >= prevP ? 'red' : 'green';
+    document.getElementById('indPanel').innerHTML = `
+        <div class="ind-card"><div class="label">最新价</div><div class="value ${color}">${p.toFixed(2)}</div></div>
+        <div class="ind-card"><div class="label">J值</div><div class="value ${ind.j>80?'red':ind.j<20?'green':'blue'}">${ind.j.toFixed(1)}</div></div>
+        <div class="ind-card"><div class="label">CCI</div><div class="value blue">${ind.cci.toFixed(1)}</div></div>
+        <div class="ind-card"><div class="label">DIF</div><div class="value">${ind.dif.toFixed(4)}</div></div>
+        <div class="ind-card"><div class="label">DEA</div><div class="value">${ind.dea.toFixed(4)}</div></div>
+        <div class="ind-card"><div class="label">MACD</div><div class="value">${ind.macd.toFixed(4)}</div></div>
+        <div class="ind-card"><div class="label">B/S</div><div class="value ${ind.b==='True'||ind.jb==='True'?'red':ind.s==='True'||ind.js==='True'?'green':''}">${ind.b==='True'?'B':ind.s==='True'?'S':ind.jb==='True'?'JB':ind.js==='True'?'JS':'--'}</div></div>
+        <div class="ind-card"><div class="label">背离</div><div class="value ${ind.bottom==='True'?'red':ind.top==='True'?'green':''}">${ind.bottom==='True'?'底':ind.top==='True'?'顶':'--'}</div></div>`;
+}
+
+function renderKline(code, bars, macdData, kdjData, signals) {
+    const dates = bars.map(b => b.time.slice(11,16));
+    const ohlc = bars.map(b => [b.open, b.close, b.low, b.high]);
+
+    // 信号标注数据: 匹配 signal.time 到 xAxis index
+    const buyMarks = [], sellMarks = [];
+    if (signals) {
+        const timeIndex = {};
+        bars.forEach((b, i) => { timeIndex[b.time.slice(11,16)] = i; });
+        signals.forEach(s => {
+            const idx = timeIndex[s.time.slice(11,16)];
+            if (idx !== undefined) {
+                (s.direction === 'buy' ? buyMarks : sellMarks).push({
+                    coord: [idx, s.price],
+                    name: s.full,
+                    value: s.label,
+                });
+            }
+        });
+    }
+
+    // K线
+    const klineDom = document.getElementById('klineChart');
+    if (klineChart) klineChart.dispose();
+    klineChart = echarts.init(klineDom);
+    var series = [{
+        name:'K线', type:'candlestick', data:ohlc,
+        itemStyle:{color:RED,color0:GREEN,borderColor:RED,borderColor0:GREEN}
+    }];
+    if (buyMarks.length) series.push({
+        name:'买入', type:'scatter', data:buyMarks.map(m => m.coord),
+        symbol:'triangle', symbolSize:12, symbolRotate:0,
+        itemStyle:{color:'#da3633', borderColor:'#fff', borderWidth:1},
+        label:{show:true, formatter:p => p.value, position:'bottom', fontSize:9, color:'#da3633', fontWeight:'bold'},
+        tooltip:{formatter:p => `${p.name}<br/>价格: ${p.data[1]}`}
+    });
+    if (sellMarks.length) series.push({
+        name:'卖出', type:'scatter', data:sellMarks.map(m => m.coord),
+        symbol:'triangle', symbolSize:12, symbolRotate:180,
+        itemStyle:{color:'#3fb950', borderColor:'#fff', borderWidth:1},
+        label:{show:true, formatter:p => p.value, position:'top', fontSize:9, color:'#3fb950', fontWeight:'bold'},
+        tooltip:{formatter:p => `${p.name}<br/>价格: ${p.data[1]}`}
+    });
+
+    klineChart.setOption({
+        grid: {left:50,right:60,top:30,bottom:30},
+        tooltip: {trigger:'axis', axisPointer:{type:'cross'}},
+        legend: {data:['K线','买入','卖出'], textStyle:{fontSize:10,color:'#8b949e'}, top:4, itemWidth:14, itemHeight:10},
+        xAxis: {type:'category', data:dates, axisLabel:{fontSize:9,color:'#8b949e'}, axisLine:{lineStyle:{color:'#30363d'}}},
+        yAxis: {type:'value', scale:true, axisLabel:{fontSize:9,color:'#8b949e'}, splitLine:{lineStyle:{color:'#21262d'}}},
+        series
+    });
+
+    // MACD
+    const macdDom = document.getElementById('macdChart');
+    if (macdChart) macdChart.dispose();
+    macdChart = echarts.init(macdDom);
+    const si = macdData.start_idx || 0;
+    const xMacd = dates.slice(si);
+    macdChart.setOption({
+        grid: {left:50,right:10,top:8,bottom:25},
+        legend: {data:['DIF','DEA','MACD'], textStyle:{fontSize:10,color:'#8b949e'}, top:0, right:0, itemWidth:16, itemHeight:8},
+        xAxis: {type:'category', data:xMacd, axisLabel:{fontSize:8,color:'#8b949e'}, axisLine:{lineStyle:{color:'#30363d'}}},
+        yAxis: {type:'value', axisLabel:{fontSize:8,color:'#8b949e'}, splitLine:{lineStyle:{color:'#21262d'}}},
+        series: [
+            {name:'DIF', type:'line', data:macdData.dif.slice(si), smooth:true, lineStyle:{width:1.5,color:BLUE}, symbol:'none'},
+            {name:'DEA', type:'line', data:macdData.dea, smooth:true, lineStyle:{width:1.5,color:'#e3b341'}, symbol:'none'},
+            {name:'MACD', type:'bar', data:macdData.macd, itemStyle:{color:params => params.data>=0?'none':GREEN},
+                emphasis:{itemStyle:{color:params => params.data>=0?RED:GREEN}}}
+        ]
+    });
+
+    // KDJ
+    const kdjDom = document.getElementById('kdjChart');
+    if (kdjChart) kdjChart.dispose();
+    kdjChart = echarts.init(kdjDom);
+    kdjChart.setOption({
+        grid: {left:40,right:10,top:8,bottom:25},
+        legend: {data:['K','D','J'], textStyle:{fontSize:10,color:'#8b949e'}, top:0, right:0, itemWidth:16, itemHeight:8},
+        xAxis: {type:'category', data:dates, axisLabel:{fontSize:8,color:'#8b949e'}, axisLine:{lineStyle:{color:'#30363d'}}},
+        yAxis: {type:'value', min:0, max:100, axisLabel:{fontSize:8,color:'#8b949e'}, splitLine:{lineStyle:{color:'#21262d'}}},
+        series: [
+            {name:'K', type:'line', data:kdjData.k, smooth:true, lineStyle:{width:1.5,color:BLUE}, symbol:'none'},
+            {name:'D', type:'line', data:kdjData.d, smooth:true, lineStyle:{width:1.5,color:'#e3b341'}, symbol:'none'},
+            {name:'J', type:'line', data:kdjData.j, smooth:true, lineStyle:{width:1.5,color:'#bc8cbf'}, symbol:'none'}
+        ]
+    });
+
+    document.getElementById('klineTitle').innerHTML = code + ' 分钟K线 <span class="val">'+
+        bars[bars.length-1].close.toFixed(2)+'</span> '+
+        (bars.length ? '<span style="font-size:10px;color:#8b949e">'+bars.length+'根K线</span>' : '');
+}
+
+// ==================== Tab 切换 ====================
+document.querySelectorAll('.sidebar-nav button').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.sidebar-nav button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeTab = btn.dataset.tab;
+        renderSidebar();
+    });
+});
+
+// ==================== 键盘 ====================
+document.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+        if (document.activeElement?.id === 'addCode1' || document.activeElement?.id === 'addName1') addStock(1);
+        if (document.activeElement?.id === 'addCode2' || document.activeElement?.id === 'addName2') addStock(2);
+    }
+});
+
+// init
+refresh();
+</script>
+</body>
+</html>

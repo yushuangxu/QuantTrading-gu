@@ -1,0 +1,149 @@
+from __future__ import annotations
+
+import json
+import threading
+from datetime import date, datetime, time, timedelta
+from pathlib import Path
+from typing import Optional, Set
+
+# 连续竞价（需抓取分时）：09:30-11:30、13:00-15:00
+# 09:15-09:30 为集合竞价，不抓取
+MORNING_SESSION_START = time(9, 30)
+MORNING_SESSION_END = time(11, 30)
+AFTERNOON_SESSION_START = time(13, 0)
+AFTERNOON_SESSION_END = time(15, 0)
+
+
+def is_continuous_auction(t: time) -> bool:
+    """当前时刻是否处于连续竞价时段（含边界：9:30 开、15:00 收）。"""
+    in_morning = MORNING_SESSION_START <= t < MORNING_SESSION_END
+    in_afternoon = AFTERNOON_SESSION_START <= t < AFTERNOON_SESSION_END
+    return in_morning or in_afternoon
+
+
+class AshareSessionGuard:
+    """
+    A 股交易时段守卫：结合交易日历（节假日/调休）与日内时段。
+    使用 pytdx 行情接口判断交易日（无需 akshare）。
+    """
+
+    def __init__(self, cache_dir: Optional[Path] = None) -> None:
+        self._cache_dir = cache_dir or (Path(__file__).resolve().parent / "runtime" / "calendar")
+        self._cache_dir.mkdir(parents=True, exist_ok=True)
+        self._open_days: Set[str] = set()
+        self._loaded_range: Optional[tuple[str, str]] = None
+        self._calendar_fallback_warned = False
+        self._lock = threading.Lock()
+
+    def refresh_if_needed(self, now: Optional[datetime] = None) -> None:
+        now = now or datetime.now()
+        start = (now - timedelta(days=45)).strftime("%Y%m%d")
+        end = (now + timedelta(days=120)).strftime("%Y%m%d")
+        if self._loaded_range == (start, end) and self._open_days:
+            return
+        self._load_open_days(start, end)
+
+    def _cache_path(self, start: str, end: str) -> Path:
+        return self._cache_dir / f"trade_cal_{start}_{end}.json"
+
+    def _load_open_days(self, start: str, end: str) -> None:
+        with self._lock:
+            cache_path = self._cache_path(start, end)
+            if cache_path.exists():
+                try:
+                    payload = json.loads(cache_path.read_text(encoding="utf-8"))
+                    days = payload.get("open_days", [])
+                    if days:
+                        self._open_days = set(days)
+                        self._loaded_range = (start, end)
+                        return
+                except (json.JSONDecodeError, OSError):
+                    pass
+
+            # 使用 pytdx 获取交易日历
+            days = self._fetch_trade_calendar(start, end)
+            if days:
+                self._open_days = set(days)
+                self._loaded_range = (start, end)
+                try:
+                    cache_path.write_text(
+                        json.dumps({"open_days": sorted(self._open_days)}, ensure_ascii=False),
+                        encoding="utf-8",
+                    )
+                except Exception:
+                    pass
+                return
+
+            self._open_days = set()
+            self._loaded_range = (start, end)
+            if not self._calendar_fallback_warned:
+                self._calendar_fallback_warned = True
+                print(
+                    "[market_hours] 无法加载交易日历，将仅按周一至周五判断（节假日可能不准确）",
+                    flush=True,
+                )
+
+    def _fetch_trade_calendar(self, start: str, end: str) -> list:
+        """
+        通过 akshare 获取交易日历（pytdx 的日线数据有 bug，不可靠）。
+        """
+        try:
+            import akshare as ak
+            df = ak.tool_trade_date_hist_sina()
+            if df is not None and not df.empty:
+                all_days = df["trade_date"].astype(str).tolist()
+                return [d for d in all_days if start <= d <= end]
+        except Exception as e:
+            print(f"[market_hours] akshare 获取交易日历失败: {e}")
+        return []
+
+    def is_trading_day(self, day: date, now: Optional[datetime] = None) -> bool:
+        self.refresh_if_needed(now or datetime.combine(day, time.min))
+        key = day.strftime("%Y%m%d")
+        if self._open_days:
+            return key in self._open_days
+        return day.weekday() < 5
+
+    def should_fetch(self, now: Optional[datetime] = None) -> bool:
+        now = now or datetime.now()
+        if not self.is_trading_day(now.date(), now):
+            return False
+        return is_continuous_auction(now.time())
+
+    def status_message(self, now: Optional[datetime] = None) -> str:
+        now = now or datetime.now()
+        if not self.is_trading_day(now.date(), now):
+            return f"{now.strftime('%Y-%m-%d')} 非交易日"
+        t = now.time()
+        if t < MORNING_SESSION_START:
+            return "盘前等待（集合竞价 09:15-09:30 不抓取）"
+        if MORNING_SESSION_END <= t < AFTERNOON_SESSION_START:
+            return "午间休市"
+        if t >= AFTERNOON_SESSION_END:
+            return "已收盘"
+        if MORNING_SESSION_START <= t < MORNING_SESSION_END:
+            return "上午连续竞价"
+        if AFTERNOON_SESSION_START <= t < AFTERNOON_SESSION_END:
+            return "下午连续竞价"
+        return "非连续竞价时段"
+
+    def seconds_until_fetch_window(self, now: Optional[datetime] = None) -> float:
+        """距离下一次应开始抓取的最短秒数（用于休市时降低空转）。"""
+        now = now or datetime.now()
+        if self.should_fetch(now):
+            return 0.0
+
+        candidates: list[datetime] = []
+        for offset in range(0, 14):
+            day = now.date() + timedelta(days=offset)
+            if not self.is_trading_day(day, now):
+                continue
+            morning_open = datetime.combine(day, MORNING_SESSION_START)
+            afternoon_open = datetime.combine(day, AFTERNOON_SESSION_START)
+            for candidate in (morning_open, afternoon_open):
+                if candidate > now:
+                    candidates.append(candidate)
+
+        if not candidates:
+            return 60.0
+        return max(5.0, min(300.0, (min(candidates) - now).total_seconds()))

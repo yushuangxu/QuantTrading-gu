@@ -1,0 +1,6 @@
+pandas
+numpy
+akshare
+python-dotenv
+requests
+pytdx

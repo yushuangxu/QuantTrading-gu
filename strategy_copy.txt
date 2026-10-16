@@ -1,0 +1,539 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Optional
+
+import numpy as np
+import pandas as pd
+
+
+@dataclass(frozen=True)
+class SignalResult:
+    ts_code: str
+    bar_time: str
+    close: float
+    j: float
+    dif: float
+    dea: float
+    macd: float
+    cci: float
+    buy_b: bool
+    sell_s: bool
+    bottom_fishing: bool
+    top_escape: bool
+    buy_jb: bool
+    sell_js: bool
+
+    @property
+    def buy(self) -> bool:
+        return self.buy_b
+
+    @property
+    def sell(self) -> bool:
+        return self.sell_s
+
+    @property
+    def has_alert(self) -> bool:
+        return (
+            self.buy_b
+            or self.sell_s
+            or self.bottom_fishing
+            or self.top_escape
+            or self.buy_jb
+            or self.sell_js
+        )
+
+
+class KdjMacdStrategy:
+    """
+    按通达信公式移植的分时 MACD 背离 + CCI + KDJ + 子浪策略。
+
+    买入B := 综合底背离 AND CCI < -120 AND J < 20
+    卖出S := 综合顶背离 AND CCI > 120 AND J > 80
+    抄底 := 强背离 AND CCI < -120 AND J < 20 AND DIF < 0 AND DEA < 0 AND DIF < DEA
+    逃顶 := 强顶背离_新 AND CCI > 120 AND J > 80 AND DIF > 0 AND DEA > 0 AND DIF > DEA
+    """
+    def __init__(
+        self,
+        buy_j_threshold: float = 20.0,
+        sell_j_threshold: float = 80.0,
+        cci_buy_threshold: float = -120.0,
+        cci_sell_threshold: float = 120.0,
+        macd_short: int = 12,
+        macd_long: int = 26,
+        macd_mid: int = 9,
+        cci_period: int = 14,
+        kdj_n: int = 9,
+        kdj_m1: int = 3,
+        kdj_m2: int = 3,
+        big_ratio: float = 0.75,
+        mid_ratio: float = 0.3,
+        zig_r: int = 5,
+        kinetic_window: int = 60,
+        signal_filter_period: int = 5,
+        turn_buy_j_threshold: float = 15.0,
+        turn_sell_j_threshold: float = 85.0,
+    ) -> None:
+        self.buy_j_threshold = buy_j_threshold
+        self.sell_j_threshold = sell_j_threshold
+        self.cci_buy_threshold = cci_buy_threshold
+        self.cci_sell_threshold = cci_sell_threshold
+        self.macd_short = macd_short
+        self.macd_long = macd_long
+        self.macd_mid = macd_mid
+        self.cci_period = cci_period
+        self.kdj_n = kdj_n
+        self.kdj_m1 = kdj_m1
+        self.kdj_m2 = kdj_m2
+        self.big_ratio = big_ratio
+        self.mid_ratio = mid_ratio
+        self.zig_r = zig_r
+        self.kinetic_window = kinetic_window
+        self.signal_filter_period = signal_filter_period
+        self.turn_buy_j_threshold = turn_buy_j_threshold
+        self.turn_sell_j_threshold = turn_sell_j_threshold
+
+    @staticmethod
+    def _sma_cn(x: pd.Series, n: int, m: int = 1) -> pd.Series:
+        if n <= 0:
+            raise ValueError("n must be > 0")
+        if m <= 0 or m > n:
+            raise ValueError("m must satisfy 1 <= m <= n")
+
+        x = x.astype(float)
+        out = pd.Series(index=x.index, dtype="float64")
+        prev = np.nan
+        alpha = m / n
+        for i, value in enumerate(x.to_numpy(dtype=float)):
+            if np.isnan(value):
+                out.iat[i] = prev
+                continue
+            if np.isnan(prev):
+                prev = value
+            else:
+                prev = alpha * value + (1.0 - alpha) * prev
+            out.iat[i] = prev
+        return out
+
+    @staticmethod
+    def _ema(x: pd.Series, span: int) -> pd.Series:
+        return x.astype(float).ewm(span=span, adjust=False).mean()
+
+    @staticmethod
+    def _cross(a: pd.Series, b: pd.Series) -> pd.Series:
+        a_prev = a.shift(1)
+        b_prev = b.shift(1)
+        return (a > b) & (a_prev <= b_prev)
+
+    @staticmethod
+    def _barslast(cond: np.ndarray) -> np.ndarray:
+        n = len(cond)
+        out = np.zeros(n, dtype=int)
+        last_true = -1
+        for i in range(n):
+            if bool(cond[i]):
+                last_true = i
+                out[i] = 0
+            elif last_true >= 0:
+                out[i] = i - last_true
+            else:
+                out[i] = i + 1
+        return out
+
+    @staticmethod
+    def _valuewhen(cond: np.ndarray, values: np.ndarray) -> np.ndarray:
+        n = len(cond)
+        out = np.full(n, np.nan, dtype=float)
+        last_val = np.nan
+        for i in range(n):
+            if bool(cond[i]):
+                last_val = float(values[i])
+            out[i] = last_val
+        return out
+
+    @staticmethod
+    def _ref_series(values: np.ndarray, offsets: np.ndarray) -> np.ndarray:
+        n = len(values)
+        out = np.full(n, np.nan, dtype=float)
+        for i in range(n):
+            off = offsets[i]
+            if np.isnan(off):
+                continue
+            j = i - int(off)
+            if 0 <= j < n:
+                out[i] = float(values[j])
+        return out
+
+    @staticmethod
+    def _rolling_extreme(arr: np.ndarray, periods: np.ndarray, mode: str) -> np.ndarray:
+        n = len(arr)
+        out = np.full(n, np.nan, dtype=float)
+        for i in range(n):
+            p_val = periods[i]
+            if np.isnan(p_val):
+                continue
+            p = int(p_val)
+            if p <= 0:
+                continue
+            start = max(0, i - p + 1)
+            window = arr[start : i + 1]
+            if len(window) == 0:
+                continue
+            out[i] = float(np.min(window) if mode == "min" else np.max(window))
+        return out
+
+    @staticmethod
+    def _zig_pivots(series: np.ndarray, threshold_pct: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        n = len(series)
+        zig = np.full(n, np.nan, dtype=float)
+        peaks = np.zeros(n, dtype=bool)
+        troughs = np.zeros(n, dtype=bool)
+        if n == 0:
+            return zig, peaks, troughs
+
+        threshold = abs(float(threshold_pct)) / 100.0
+        if threshold <= 0:
+            threshold = 0.05
+
+        def _valid(v: float) -> bool:
+            return not np.isnan(v)
+
+        last_pivot_idx = 0
+        last_pivot_val = float(series[0])
+        zig[0] = last_pivot_val
+        trend = 0
+        candidate_idx = 0
+        candidate_val = last_pivot_val
+
+        for i in range(1, n):
+            val = float(series[i])
+            if not _valid(val):
+                continue
+
+            if trend == 0:
+                if val >= candidate_val:
+                    candidate_idx = i
+                    candidate_val = val
+                if candidate_val != 0 and (candidate_val - last_pivot_val) / abs(candidate_val if candidate_val != 0 else 1.0) >= threshold:
+                    trend = 1
+                    last_pivot_idx = candidate_idx
+                    last_pivot_val = candidate_val
+                    zig[last_pivot_idx] = last_pivot_val
+                    peaks[last_pivot_idx] = True
+                elif candidate_val != 0 and (last_pivot_val - candidate_val) / abs(last_pivot_val if last_pivot_val != 0 else 1.0) >= threshold:
+                    trend = -1
+                    last_pivot_idx = candidate_idx
+                    last_pivot_val = candidate_val
+                    zig[last_pivot_idx] = last_pivot_val
+                    troughs[last_pivot_idx] = True
+                continue
+
+            if trend > 0:
+                if val >= last_pivot_val:
+                    last_pivot_idx = i
+                    last_pivot_val = val
+                    zig[last_pivot_idx] = last_pivot_val
+                    peaks[last_pivot_idx] = True
+                elif last_pivot_val != 0 and (last_pivot_val - val) / abs(last_pivot_val) >= threshold:
+                    trend = -1
+                    last_pivot_idx = i
+                    last_pivot_val = val
+                    zig[last_pivot_idx] = last_pivot_val
+                    troughs[last_pivot_idx] = True
+            else:
+                if val <= last_pivot_val:
+                    last_pivot_idx = i
+                    last_pivot_val = val
+                    zig[last_pivot_idx] = last_pivot_val
+                    troughs[last_pivot_idx] = True
+                elif last_pivot_val != 0 and (val - last_pivot_val) / abs(last_pivot_val) >= threshold:
+                    trend = 1
+                    last_pivot_idx = i
+                    last_pivot_val = val
+                    zig[last_pivot_idx] = last_pivot_val
+                    peaks[last_pivot_idx] = True
+
+        return zig, peaks, troughs
+
+    def _avedev(self, x: pd.Series, n: int) -> pd.Series:
+        return x.rolling(n, min_periods=n).apply(
+            lambda values: float(np.mean(np.abs(values - np.mean(values)))),
+            raw=True,
+        )
+
+    def _cci(self, high: pd.Series, low: pd.Series, close: pd.Series) -> pd.Series:
+        typ = (high + low + close) / 3.0
+        ma = typ.rolling(self.cci_period, min_periods=self.cci_period).mean()
+        avedev = self._avedev(typ, self.cci_period)
+        return (typ - ma) / (0.015 * avedev.replace(0, np.nan))
+
+    def _compute_divergence(
+        self,
+        close: np.ndarray,
+        dif: np.ndarray,
+        dea: np.ndarray,
+        macd: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        cross_gc = self._cross(pd.Series(dif), pd.Series(dea)).to_numpy(dtype=bool)
+        cross_dc = self._cross(pd.Series(dea), pd.Series(dif)).to_numpy(dtype=bool)
+
+        sc1 = self._barslast(cross_dc).astype(float)
+        jc1 = self._barslast(cross_gc).astype(float)
+
+        prev_green_bars = self._valuewhen(cross_gc, sc1)
+        mid_red_bars = self._valuewhen(cross_dc, jc1)
+        red_valid = mid_red_bars >= 3
+        green_valid = (prev_green_bars >= 5) & (sc1 >= 1)
+        two_green_rounds = green_valid & red_valid & ((prev_green_bars + mid_red_bars + sc1) < 100)
+
+        prev_green_low_price = self._ref_series(
+            self._rolling_extreme(close, prev_green_bars, "min"),
+            jc1,
+        )
+        prev_green_low_macd = self._ref_series(
+            self._rolling_extreme(macd, prev_green_bars, "min"),
+            jc1,
+        )
+        curr_green_low_price = self._rolling_extreme(close, sc1, "min")
+        curr_green_low_macd = self._rolling_extreme(macd, sc1, "min")
+        two_round_bottom = (
+            two_green_rounds
+            & (curr_green_low_price <= prev_green_low_price * 1.01)
+            & (curr_green_low_macd >= prev_green_low_macd)
+        )
+
+        big_green = (sc1 >= 8) & (sc1 <= 32)
+        half_len = np.floor(sc1 / 2.0)
+        front_half_low_price = self._ref_series(
+            self._rolling_extreme(close, half_len, "min"),
+            half_len,
+        )
+        front_half_low_macd = self._ref_series(
+            self._rolling_extreme(macd, half_len, "min"),
+            half_len,
+        )
+        back_half_low_price = self._rolling_extreme(close, half_len, "min")
+        back_half_low_macd = self._rolling_extreme(macd, half_len, "min")
+        inner_bottom = (
+            big_green
+            & (back_half_low_price <= front_half_low_price * 1.01)
+            & (back_half_low_macd > front_half_low_macd)
+        )
+
+        total_bottom = two_round_bottom | inner_bottom
+        strong_bottom = two_round_bottom & inner_bottom
+
+        prev_red_bars = self._valuewhen(cross_dc, jc1)
+        mid_green_bars = self._valuewhen(cross_gc, sc1)
+        red_valid_2 = prev_red_bars >= 3
+        green_valid_2 = (mid_green_bars >= 5) & (jc1 >= 1)
+        two_red_rounds = red_valid_2 & green_valid_2 & ((prev_red_bars + mid_green_bars + jc1) < 100)
+
+        prev_red_high_price = self._ref_series(
+            self._rolling_extreme(close, prev_red_bars, "max"),
+            sc1,
+        )
+        prev_red_high_macd = self._ref_series(
+            self._rolling_extreme(macd, prev_red_bars, "max"),
+            sc1,
+        )
+        curr_red_high_price = self._rolling_extreme(close, jc1, "max")
+        curr_red_high_macd = self._rolling_extreme(macd, jc1, "max")
+        two_round_top = (
+            two_red_rounds
+            & (curr_red_high_price >= prev_red_high_price * 0.99)
+            & (curr_red_high_macd <= prev_red_high_macd)
+        )
+
+        big_red = (jc1 >= 8) & (jc1 <= 32)
+        half_len_top = np.floor(jc1 / 2.0)
+        front_half_high_price = self._ref_series(
+            self._rolling_extreme(close, half_len_top, "max"),
+            half_len_top,
+        )
+        front_half_high_macd = self._ref_series(
+            self._rolling_extreme(macd, half_len_top, "max"),
+            half_len_top,
+        )
+        back_half_high_price = self._rolling_extreme(close, half_len_top, "max")
+        back_half_high_macd = self._rolling_extreme(macd, half_len_top, "max")
+        inner_top = (
+            big_red
+            & (back_half_high_price >= front_half_high_price * 0.99)
+            & (back_half_high_macd < front_half_high_macd)
+        )
+
+        total_top = two_round_top | inner_top
+        strong_top = two_round_top & inner_top
+
+        return (
+            total_bottom,
+            total_top,
+            strong_bottom,
+            strong_top,
+            two_round_bottom,
+            inner_bottom,
+            two_round_top,
+            inner_top,
+        )
+
+    def compute(self, df: pd.DataFrame) -> pd.DataFrame:
+        required_columns = {"high", "low", "close"}
+        if not required_columns.issubset(df.columns):
+            missing = required_columns.difference(df.columns)
+            raise ValueError(f"missing columns: {sorted(missing)}")
+
+        high = df["high"].astype(float)
+        low = df["low"].astype(float)
+        close = df["close"].astype(float)
+
+        close_arr = close.to_numpy(dtype=float)
+        high_arr = high.to_numpy(dtype=float)
+        low_arr = low.to_numpy(dtype=float)
+        amount_arr = df["amount"].astype(float).to_numpy(dtype=float) if "amount" in df.columns else np.full(len(df), np.nan)
+        vol_arr = df["vol"].astype(float).to_numpy(dtype=float) if "vol" in df.columns else np.full(len(df), np.nan)
+
+        dif = self._ema(close, self.macd_short) - self._ema(close, self.macd_long)
+        dea = self._ema(dif, self.macd_mid)
+        macd = 2.0 * (dif - dea)
+        cci = self._cci(high, low, close)
+
+        vol_safe = pd.Series(vol_arr, index=df.index).replace(0, np.nan)
+        jj = pd.Series(amount_arr, index=df.index) / vol_safe / 100.0
+        jj = jj.where(jj.notna(), close)
+
+        llv_l = low.rolling(self.kdj_n, min_periods=self.kdj_n).min()
+        hhv_h = high.rolling(self.kdj_n, min_periods=self.kdj_n).max()
+        denom = (hhv_h - llv_l).replace(0, np.nan)
+        rsv = (close - llv_l) / denom * 100.0
+        k = self._sma_cn(rsv, self.kdj_m1, 1)
+        d = self._sma_cn(k, self.kdj_m2, 1)
+        j = 3 * k - 2 * d
+
+        (
+            total_bottom,
+            total_top,
+            strong_bottom,
+            strong_top,
+            two_round_bottom,
+            inner_bottom,
+            two_round_top,
+            inner_top,
+        ) = self._compute_divergence(
+            close_arr,
+            dif.to_numpy(dtype=float),
+            dea.to_numpy(dtype=float),
+            macd.to_numpy(dtype=float),
+        )
+
+        red_val = np.where(macd.to_numpy(dtype=float) > 0, macd.to_numpy(dtype=float), 0.0)
+        gre_val = np.where(macd.to_numpy(dtype=float) < 0, macd.to_numpy(dtype=float), 0.0)
+        red_max_144 = pd.Series(red_val, index=df.index).rolling(self.kinetic_window, min_periods=1).max().to_numpy(dtype=float)
+        gre_min_144 = pd.Series(gre_val, index=df.index).rolling(self.kinetic_window, min_periods=1).min().to_numpy(dtype=float)
+
+        macd_arr = macd.to_numpy(dtype=float)
+        dif_arr = dif.to_numpy(dtype=float)
+        dea_arr = dea.to_numpy(dtype=float)
+
+        is_red = macd_arr > 0
+        is_gre = macd_arr < 0
+        red_wave_start = self._barslast(is_gre) + 1
+        gre_wave_start = self._barslast(is_red) + 1
+        curr_red_peak = self._rolling_extreme(macd_arr, red_wave_start.astype(float), "max")
+        curr_gre_trough = self._rolling_extreme(macd_arr, gre_wave_start.astype(float), "min")
+
+        big_red = is_red & (curr_red_peak >= red_max_144 * self.big_ratio)
+        mid_red = is_red & (curr_red_peak < red_max_144 * self.big_ratio) & (curr_red_peak >= red_max_144 * self.mid_ratio)
+        small_red = is_red & (curr_red_peak < red_max_144 * self.mid_ratio)
+
+        big_gre = is_gre & (curr_gre_trough <= gre_min_144 * self.big_ratio)
+        mid_gre = is_gre & (curr_gre_trough > gre_min_144 * self.big_ratio) & (curr_gre_trough <= gre_min_144 * self.mid_ratio)
+        small_gre = is_gre & (curr_gre_trough > gre_min_144 * self.mid_ratio)
+
+        macd_zig, wave_peak, wave_trough = self._zig_pivots(macd_arr, self.zig_r)
+
+        cci_arr = cci.to_numpy(dtype=float)
+        j_arr = j.to_numpy(dtype=float)
+
+        buy_b_raw = total_bottom & (cci_arr < self.cci_buy_threshold) & (j_arr < 20)
+        sell_s_raw = total_top & (cci_arr > self.cci_sell_threshold) & (j_arr > 80)
+
+        buy_b = buy_b_raw
+        sell_s = sell_s_raw
+
+        bottom_fishing = strong_bottom & (cci_arr < self.cci_buy_threshold) & (j_arr < 20) & (dif_arr < 0) & (dea_arr < 0) & (dif_arr < dea_arr)
+        top_escape = strong_top & (cci_arr > self.cci_sell_threshold) & (j_arr > 80) & (dif_arr > 0) & (dea_arr > 0) & (dif_arr > dea_arr)
+
+        big_gre = is_gre & (curr_gre_trough <= gre_min_144 * self.big_ratio)
+        big_red = is_red & (curr_red_peak >= red_max_144 * self.big_ratio)
+        buy_jb = big_gre & wave_trough & (dif_arr < 0) & (dea_arr < 0) & (cci_arr < self.cci_buy_threshold) & (j_arr < 15)
+        sell_js = big_red & wave_peak & (dif_arr > 0) & (dea_arr > 0) & (cci_arr > self.cci_sell_threshold) & (j_arr > 85)
+
+        out = df.copy()
+        out["K"] = k
+        out["D"] = d
+        out["J"] = j
+        out["DIF"] = dif
+        out["DEA"] = dea
+        out["MACD"] = macd
+        out["CCI"] = cci
+        out["IS_RED"] = is_red
+        out["IS_GRE"] = is_gre
+        out["RED_MAX_144"] = red_max_144
+        out["GRE_MIN_144"] = gre_min_144
+        out["CURRENT_RED_PEAK"] = curr_red_peak
+        out["CURRENT_GRE_TROUGH"] = curr_gre_trough
+        out["MACD_ZIG"] = macd_zig
+        out["WAVE_PEAK"] = wave_peak
+        out["WAVE_TROUGH"] = wave_trough
+        out["BIG_RED"] = big_red
+        out["MID_RED"] = mid_red
+        out["SMALL_RED"] = small_red
+        out["BIG_GRE"] = big_gre
+        out["MID_GRE"] = mid_gre
+        out["SMALL_GRE"] = small_gre
+        out["BOTTOM_DIV"] = total_bottom
+        out["TOP_DIV"] = total_top
+        out["STRONG_BOTTOM"] = strong_bottom
+        out["STRONG_TOP"] = strong_top
+        out["TWO_ROUND_BOTTOM_DIV"] = two_round_bottom
+        out["INNER_BOTTOM_DIV"] = inner_bottom
+        out["TWO_ROUND_TOP_DIV"] = two_round_top
+        out["INNER_TOP_DIV"] = inner_top
+        out["BUY_B_RAW"] = buy_b_raw
+        out["SELL_S_RAW"] = sell_s_raw
+
+        out["BUY_B"] = buy_b
+        out["SELL_S"] = sell_s
+        out["BOTTOM_FISHING"] = bottom_fishing
+        out["TOP_ESCAPE"] = top_escape
+        out["BUY_JB"] = buy_jb
+        out["SELL_JS"] = sell_js
+        out["BUY"] = buy_b
+        out["SELL"] = sell_s
+        return out
+
+    def latest_signal(self, ts_code: str, df: pd.DataFrame, min_bars_required: int = 150) -> Optional[SignalResult]:
+        if df is None or df.empty:
+            return None
+        if len(df) < min_bars_required:
+            return None
+
+        enriched = self.compute(df)
+        last = enriched.iloc[-1]
+        return SignalResult(
+            ts_code=ts_code,
+            bar_time=str(last.get("time", "")),
+            close=float(last["close"]),
+            j=float(last["J"]),
+            dif=float(last["DIF"]),
+            dea=float(last["DEA"]),
+            macd=float(last["MACD"]),
+            cci=float(last["CCI"]) if pd.notna(last["CCI"]) else float("nan"),
+            buy_b=bool(last["BUY_B"]),
+            sell_s=bool(last["SELL_S"]),
+            bottom_fishing=bool(last["BOTTOM_FISHING"]),
+            top_escape=bool(last["TOP_ESCAPE"]),
+            buy_jb=bool(last["BUY_JB"]),
+            sell_js=bool(last["SELL_JS"]),
+        )

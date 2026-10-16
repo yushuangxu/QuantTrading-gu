@@ -1,0 +1,519 @@
+from __future__ import annotations
+
+import os
+import time
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Dict, List, Set, Tuple
+
+import pandas as pd
+import tushare as ts
+import tushare.pro.client as client
+from dotenv import load_dotenv
+
+from email_push import EmailPusher
+from market_hours import AshareSessionGuard
+from strategy import KdjMacdStrategy, SignalResult
+from wecom_push import WeComPusher
+from tg_push import TelegramPusher
+
+
+@dataclass(frozen=True)
+class AlertItem:
+    signal: SignalResult
+    side: str
+    label: str
+
+
+@dataclass(frozen=True)
+class TickerEntry:
+    ts_code: str
+    display: str
+
+
+@dataclass(frozen=True)
+class AppConfig:
+    tushare_token: str
+    tickers_file: str
+    poll_interval_per_minutes: int
+    min_freq: str
+    min_bars_required: int
+    signal_cooldown_minutes: int
+    heartbeat_interval_minutes: int
+    enable_trading_hours: bool
+    enable_email: bool
+    enable_telegram: bool
+    enable_wecom: bool
+    subject_prefix: str
+    # ===== 邮件推送（SMTP）=====
+    smtp_host: str
+    smtp_port: int
+    smtp_user: str
+    smtp_pass: str
+    smtp_use_ssl: bool
+    mail_from: str
+    mail_to: List[str]
+    # ===== Telegram 推送 =====
+    telegram_bot_token: str
+    telegram_chat_id: str
+    telegram_send_interval_seconds: int
+    # ===== 企业微信推送（Webhook）=====
+    wecom_webhook_url: str
+    wecom_send_interval_seconds: int
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def _load_tickers(file_path: str) -> List[TickerEntry]:
+    tickers: List[TickerEntry] = []
+    with open(file_path, "r", encoding="utf-8") as f:
+        for line in f:
+            raw = line.strip()
+            if not raw or raw.startswith("#"):
+                continue
+            code_part = raw.split("#", 1)[0].strip()
+            if not code_part:
+                continue
+            ts_code = code_part.split()[0].strip().upper()
+            if not ts_code:
+                continue
+            tickers.append(TickerEntry(ts_code=ts_code, display=raw))
+
+    seen: Set[str] = set()
+    out: List[TickerEntry] = []
+    for item in tickers:
+        if item.ts_code not in seen:
+            out.append(item)
+            seen.add(item.ts_code)
+    return out
+
+
+def _build_config() -> AppConfig:
+    token = os.getenv("TUSHARE_TOKEN", "").strip()
+    if not token:
+        raise ValueError("TUSHARE_TOKEN is required")
+
+    enable_email = _env_bool("ENABLE_EMAIL", True)
+    enable_telegram = _env_bool("ENABLE_TELEGRAM", False)
+    enable_wecom = _env_bool("ENABLE_WECOM", False)
+
+    smtp_user = os.getenv("SMTP_USER", "").strip()
+    smtp_pass = os.getenv("SMTP_PASS", "").strip()
+    smtp_host = os.getenv("SMTP_HOST", "").strip()
+    smtp_port = int(os.getenv("SMTP_PORT", "465"))
+    smtp_use_ssl = _env_bool("SMTP_USE_SSL", True)
+    mail_to = [x.strip() for x in os.getenv("MAIL_TO", "").split(",") if x.strip()]
+    mail_from = os.getenv("MAIL_FROM", smtp_user).strip() or smtp_user
+
+    if enable_email:
+        if not mail_to:
+            raise ValueError("MAIL_TO is required when ENABLE_EMAIL=true")
+        if not smtp_user or not smtp_pass or not smtp_host:
+            raise ValueError("SMTP_HOST / SMTP_USER / SMTP_PASS are required when ENABLE_EMAIL=true")
+
+    telegram_bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+    telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
+    telegram_send_interval_seconds = int(os.getenv("TELEGRAM_SEND_INTERVAL_SECONDS", "30"))
+    if enable_telegram:
+        if not telegram_bot_token or not telegram_chat_id:
+            raise ValueError("TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID are required when ENABLE_TELEGRAM=true")
+
+    wecom_webhook_url = os.getenv("WEWORK_WEBHOOK_URL", "").strip()
+    wecom_send_interval_seconds = int(os.getenv("WEWORK_SEND_INTERVAL_SECONDS", "30"))
+    if enable_wecom and not wecom_webhook_url:
+        raise ValueError("WEWORK_WEBHOOK_URL is required when ENABLE_WECOM=true")
+
+    poll_per_minutes_raw = os.getenv("POLL_INTERVAL_PER_MINUTES", "").strip()
+    if poll_per_minutes_raw:
+        poll_per_minutes = int(poll_per_minutes_raw)
+    else:
+        # backward compatibility: old key was "every N minutes".
+        old_poll_minutes = int(os.getenv("POLL_INTERVAL_MINUTES", "1"))
+        if old_poll_minutes <= 0:
+            raise ValueError("POLL_INTERVAL_MINUTES must be > 0")
+        poll_per_minutes = max(1, int(60 / old_poll_minutes))
+    if poll_per_minutes <= 0:
+        raise ValueError("POLL_INTERVAL_PER_MINUTES must be > 0")
+    min_freq = os.getenv("MIN_FREQ", "5MIN").strip().upper()
+    if min_freq not in {"1MIN", "5MIN", "15MIN", "30MIN", "60MIN"}:
+        raise ValueError("MIN_FREQ must be one of: 1MIN,5MIN,15MIN,30MIN,60MIN")
+
+    return AppConfig(
+        tushare_token=token,
+        tickers_file=os.getenv("TICKERS_FILE", "tickers.txt"),
+        poll_interval_per_minutes=poll_per_minutes,
+        min_freq=min_freq,
+        min_bars_required=int(os.getenv("MIN_BARS_REQUIRED", "35")),
+        signal_cooldown_minutes=int(os.getenv("SIGNAL_COOLDOWN_MINUTES", "60")),
+        heartbeat_interval_minutes=int(os.getenv("HEARTBEAT_INTERVAL_MINUTES", "5")),
+        enable_trading_hours=_env_bool("ENABLE_TRADING_HOURS", True),
+        enable_email=enable_email,
+        enable_telegram=enable_telegram,
+        enable_wecom=enable_wecom,
+        subject_prefix=os.getenv("SUBJECT_PREFIX", "[QuantAlert]").strip() or "[QuantAlert]",
+        smtp_host=smtp_host,
+        smtp_port=smtp_port,
+        smtp_user=smtp_user,
+        smtp_pass=smtp_pass,
+        smtp_use_ssl=smtp_use_ssl,
+        mail_from=mail_from,
+        mail_to=mail_to,
+        telegram_bot_token=telegram_bot_token,
+        telegram_chat_id=telegram_chat_id,
+        telegram_send_interval_seconds=telegram_send_interval_seconds,
+        wecom_webhook_url=wecom_webhook_url,
+        wecom_send_interval_seconds=wecom_send_interval_seconds,
+    )
+
+
+class TushareDataSource:
+    def __init__(self, token: str) -> None:
+        # 按官方说明，部分环境需要将 url 指向该地址。
+        client.DataApi._DataApi__http_url = "http://tushare.xyz"
+        self.pro = ts.pro_api(token)
+        self._cache: Dict[str, pd.DataFrame] = {}
+        self.cache_dir = Path(__file__).resolve().parent / "runtime" / "cache"
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+
+    def _cache_path(self, ts_code: str) -> Path:
+        today = datetime.now().strftime('%Y-%m-%d')
+        safe_code = ts_code.replace('.', '_')
+        return self.cache_dir / f"{today}_{safe_code}.csv"
+
+    def _load_disk_cache(self, ts_code: str) -> pd.DataFrame:
+        path = self._cache_path(ts_code)
+        if not path.exists():
+            return pd.DataFrame()
+        try:
+            df = pd.read_csv(path, dtype={"ts_code": str})
+            if not df.empty and set(["ts_code", "time", "open", "high", "low", "close", "vol", "amount"]).issubset(df.columns):
+                return df[["ts_code", "time", "open", "high", "low", "close", "vol", "amount"]]
+        except Exception as e:
+            print(f"加载本地缓存失败 ({ts_code}): {e}")
+        return pd.DataFrame()
+
+    def _save_disk_cache(self, ts_code: str, df: pd.DataFrame) -> None:
+        path = self._cache_path(ts_code)
+        try:
+            df.to_csv(path, index=False)
+        except Exception as e:
+            print(f"保存本地缓存失败 ({ts_code}): {e}")
+
+    def load_history(self, ts_code: str, freq: str) -> None:
+        """加载历史分钟数据，如果权限不足则从缓存/实时开始"""
+        cached = self._load_disk_cache(ts_code)
+        if not cached.empty:
+            self._cache[ts_code] = cached
+            print(f"加载本地缓存: {ts_code} {len(cached)} 根K线")
+
+        try:
+            # Tushare stk_mins 接口要求 freq 为 1min/5min/15min/30min/60min
+            stk_freq = freq.lower().replace("MIN", "min")
+            end_date = datetime.now().strftime('%Y%m%d %H:%M:%S')
+            if not cached.empty:
+                latest_time = cached["time"].iloc[-1]
+                try:
+                    latest_dt = datetime.strptime(str(latest_time), "%Y-%m-%d %H:%M:%S")
+                    start_date = latest_dt.strftime('%Y%m%d %H:%M:%S')
+                except ValueError:
+                    start_date = str(latest_time)
+                print(f"从缓存最新时间开始获取历史数据: {ts_code} start_date={start_date}")
+            else:
+                start_date = (datetime.now() - timedelta(days=1)).strftime('%Y%m%d 09:00:00')
+            df = self.pro.stk_mins(ts_code=ts_code, freq=stk_freq, start_date=start_date, end_date=end_date)
+            if df is not None and not df.empty:
+                df = df.sort_values("trade_time").reset_index(drop=True)
+                df = df.rename(columns={"trade_time": "time"})
+                df = df[["ts_code", "time", "open", "high", "low", "close", "vol", "amount"]]
+                if not cached.empty:
+                    df = pd.concat([cached, df]).drop_duplicates(subset=["time"]).sort_values("time").reset_index(drop=True)
+                self._cache[ts_code] = df
+                self._save_disk_cache(ts_code, df)
+                print(f"加载历史数据: {ts_code} {len(df)} 根K线")
+            else:
+                print(f"无历史数据: {ts_code}")
+        except Exception as e:
+            print(f"加载历史数据失败 ({ts_code}): {e}，将从实时数据开始缓存")
+
+    def fetch_rt_min(self, ts_code: str, freq: str) -> pd.DataFrame:
+        df = self.pro.rt_min(ts_code=ts_code, freq=freq)
+        if df is None or df.empty:
+            return self._cache.get(ts_code, pd.DataFrame())
+
+        df = df.sort_values("time").reset_index(drop=True)
+        df = df[["ts_code", "time", "open", "high", "low", "close", "vol", "amount"]]
+
+        # 合并缓存和实时数据
+        cached = self._cache.get(ts_code, pd.DataFrame())
+        if not cached.empty:
+            combined = pd.concat([cached, df]).drop_duplicates(subset=["time"]).sort_values("time").reset_index(drop=True)
+        else:
+            combined = df
+
+        self._cache[ts_code] = combined
+        self._save_disk_cache(ts_code, combined)
+
+        return combined
+
+class QuantAlertApp:
+    def __init__(self, config: AppConfig) -> None:
+        self.config = config
+        self.strategy = KdjMacdStrategy()
+        self.email_pusher: EmailPusher | None = None
+        self.telegram_pusher: TelegramPusher | None = None
+        self.wecom_pusher: WeComPusher | None = None
+
+        if self.config.enable_email:
+            self.email_pusher = EmailPusher(
+                smtp_host=config.smtp_host,
+                smtp_port=config.smtp_port,
+                smtp_user=config.smtp_user,
+                smtp_pass=config.smtp_pass,
+                mail_from=config.mail_from,
+                mail_to=config.mail_to,
+                use_ssl=config.smtp_use_ssl,
+            )
+        if self.config.enable_telegram:
+            self.telegram_pusher = TelegramPusher(
+                bot_token=config.telegram_bot_token,
+                chat_id=config.telegram_chat_id,
+                send_interval=config.telegram_send_interval_seconds,
+            )
+        if self.config.enable_wecom:
+            self.wecom_pusher = WeComPusher(
+                webhook_url=config.wecom_webhook_url,
+                send_interval=config.wecom_send_interval_seconds,
+            )
+        self.data_source = TushareDataSource(config.tushare_token)
+        self.session_guard: AshareSessionGuard | None = None
+        if config.enable_trading_hours:
+            self.session_guard = AshareSessionGuard(pro=self.data_source.pro)
+        self._sent_cache: Set[Tuple[str, str, str]] = set()
+        self._last_sent_at: Dict[Tuple[str, str], datetime] = {}
+        self._last_seen_bar_time: Dict[str, str] = {}
+        self._ticker_display: Dict[str, str] = {}
+
+    def _log(self, text: str) -> None:
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {text}", flush=True)
+
+    def _signal_key(self, signal: SignalResult, side: str) -> Tuple[str, str, str]:
+        return signal.ts_code, signal.bar_time, side
+
+    def _pass_cooldown(self, signal: SignalResult, side: str) -> bool:
+        cooldown_minutes = self.config.signal_cooldown_minutes
+        if cooldown_minutes <= 0:
+            return True
+        key = (signal.ts_code, side)
+        now = datetime.now()
+        last = self._last_sent_at.get(key)
+        if last is None:
+            return True
+        return (now - last) >= timedelta(minutes=cooldown_minutes)
+
+    def _scan_once(self) -> Tuple[List[AlertItem], bool]:
+        tickers = _load_tickers(self.config.tickers_file)
+        if not tickers:
+            self._log(f"未读取到标的，请检查 {self.config.tickers_file}")
+            return [], False
+
+        alerts: List[AlertItem] = []
+        saw_new_bar = False
+
+        for ticker in tickers:
+            ts_code = ticker.ts_code
+            self._ticker_display[ts_code] = ticker.display
+            try:
+                min_df = self.data_source.fetch_rt_min(ts_code=ts_code, freq=self.config.min_freq)
+                if min_df is None or min_df.empty:
+                    self._log(f"{ts_code}: 无分时数据")
+                    continue
+
+                last_bar = min_df.iloc[-1]
+                bar_time = str(last_bar.get("time", ""))
+                open_px = float(last_bar.get("open", 0.0))
+                high_px = float(last_bar.get("high", 0.0))
+                low_px = float(last_bar.get("low", 0.0))
+                close_px = float(last_bar.get("close", 0.0))
+                vol = float(last_bar.get("vol", 0.0))
+                is_new_bar = self._last_seen_bar_time.get(ts_code) != bar_time
+                self._last_seen_bar_time[ts_code] = bar_time
+                if is_new_bar:
+                    saw_new_bar = True
+                self._log(
+                    f"{ts_code} BAR time={bar_time} open={open_px:.3f} high={high_px:.3f} "
+                    f"low={low_px:.3f} close={close_px:.3f} vol={vol:.0f}"
+                )
+
+                signal = self.strategy.latest_signal(
+                    ts_code=ts_code, df=min_df, min_bars_required=self.config.min_bars_required
+                )
+                if signal is None:
+                    self._log(f"{ts_code}: K线不足（当前 {len(min_df)} < {self.config.min_bars_required}）")
+                    continue
+
+                self._log(
+                    f"{ts_code} {signal.bar_time} close={signal.close:.3f} "
+                    f"J={signal.j:.3f} CCI={signal.cci:.2f} "
+                    f"DIF={signal.dif:.4f} DEA={signal.dea:.4f} MACD={signal.macd:.4f} "
+                    f"B={signal.buy_b} S={signal.sell_s} 抄底={signal.bottom_fishing} 逃顶={signal.top_escape}"
+                )
+
+                candidates: List[Tuple[str, str, bool]] = [
+                    ("BOTTOM", "抄底", signal.bottom_fishing),
+                    ("BUY", "买入", signal.buy_b and not signal.bottom_fishing),
+                    ("TOP", "逃顶", signal.top_escape),
+                    ("SELL", "卖出", signal.sell_s and not signal.top_escape),
+                ]
+                for side, label, active in candidates:
+                    if not active:
+                        continue
+                    if self._signal_key(signal, side) in self._sent_cache:
+                        continue
+                    if not self._pass_cooldown(signal, side):
+                        continue
+                    alerts.append(AlertItem(signal=signal, side=side, label=label))
+            except Exception as exc:
+                self._log(f"{ts_code}: 扫描失败 -> {exc}")
+
+        return alerts, saw_new_bar
+
+    def _build_email_content(self, alerts: List[AlertItem]) -> str:
+        push_time = datetime.now().astimezone().strftime("%H:%M:%S")
+        lines: List[str] = [f"推送时间：{push_time}"]
+
+        for item in alerts:
+            label = self._ticker_display.get(item.signal.ts_code, item.signal.ts_code)
+            lines.append(f"{label}  {item.label}")
+
+        return "\n".join(lines).strip() + "\n"
+
+    def _load_history_for_tickers(self, tickers: List[TickerEntry]) -> None:
+        for ticker in tickers:
+            self.data_source.load_history(ticker.ts_code, self.config.min_freq)
+
+    def run_forever(self) -> None:
+        self._log(
+            f"后台启动，轮询频率: 每分钟 {self.config.poll_interval_per_minutes} 次，"
+            f"分时周期={self.config.min_freq}，最少K线={self.config.min_bars_required}"
+        )
+        self._log(
+            f"通知通道: email={self.config.enable_email}, telegram={self.config.enable_telegram}, wecom={self.config.enable_wecom}"
+        )
+        if self.config.enable_trading_hours:
+            self._log(
+                "交易时段控制: 已开启（连续竞价 09:30-11:30、13:00-15:00；"
+                "集合竞价 09:15-09:30 及收盘后不抓取）"
+            )
+        else:
+            self._log("交易时段控制: 已关闭（全天轮询）")
+        tickers = _load_tickers(self.config.tickers_file)
+        self._log(f"监控 {len(tickers)} 个标的，分时周期={self.config.min_freq}")
+
+        history_loaded = False
+        if not self.config.enable_trading_hours:
+            self._load_history_for_tickers(tickers)
+            history_loaded = True
+            self._log("已加载历史缓存，开始扫描")
+
+        last_heartbeat_at: datetime = datetime.now()
+        fetch_session_active = False
+        poll_sleep_seconds = 60.0 / self.config.poll_interval_per_minutes
+
+        while True:
+            now = datetime.now()
+            in_fetch_window = True
+            if self.session_guard is not None:
+                self.session_guard.refresh_if_needed(now)
+                in_fetch_window = self.session_guard.should_fetch(now)
+                if in_fetch_window != fetch_session_active:
+                    fetch_session_active = in_fetch_window
+                    if in_fetch_window:
+                        self._log("进入交易时段，开始抓取分时数据")
+                        if not history_loaded:
+                            self._load_history_for_tickers(tickers)
+                            history_loaded = True
+                    else:
+                        self._log(f"暂停抓取：{self.session_guard.status_message(now)}")
+
+                if not in_fetch_window:
+                    if self.config.heartbeat_interval_minutes > 0:
+                        if (now - last_heartbeat_at) >= timedelta(
+                            minutes=self.config.heartbeat_interval_minutes
+                        ):
+                            self._log(
+                                f"--- 心跳检测正常（休市：{self.session_guard.status_message(now)}）---"
+                            )
+                            last_heartbeat_at = now
+                    time.sleep(self.session_guard.seconds_until_fetch_window(now))
+                    continue
+
+            if not history_loaded:
+                self._load_history_for_tickers(tickers)
+                history_loaded = True
+
+            alerts, saw_new_bar = self._scan_once()
+
+            if alerts:
+                counts = {
+                    "抄底": sum(1 for x in alerts if x.side == "BOTTOM"),
+                    "买入": sum(1 for x in alerts if x.side == "BUY"),
+                    "逃顶": sum(1 for x in alerts if x.side == "TOP"),
+                    "卖出": sum(1 for x in alerts if x.side == "SELL"),
+                }
+                count_text = " ".join(f"{k}={v}" for k, v in counts.items() if v > 0)
+                subject = f"{self.config.subject_prefix} {count_text}"
+                content = self._build_email_content(alerts)
+
+                sent_any = False
+                if self.config.enable_email and self.email_pusher is not None:
+                    self.email_pusher.push(subject=subject, content=content)
+                    sent_any = True
+                    self._log(f"邮件已发送: {subject}")
+
+                if self.config.enable_telegram and self.telegram_pusher is not None:
+                    self.telegram_pusher.push(subject=subject, content=content)
+                    sent_any = True
+                    self._log(f"Telegram已发送: {subject}")
+
+                if self.config.enable_wecom and self.wecom_pusher is not None:
+                    self.wecom_pusher.push(subject=subject, content=content)
+                    sent_any = True
+                    self._log(f"企业微信已发送: {subject}")
+
+                if not sent_any:
+                    self._log("未启用任何通知通道，本轮仅打印信号")
+
+                for item in alerts:
+                    self._sent_cache.add(self._signal_key(item.signal, item.side))
+                    self._last_sent_at[(item.signal.ts_code, item.side)] = datetime.now()
+            elif saw_new_bar:
+                self._log("本轮无新信号，不发送通知")
+
+            if self.config.heartbeat_interval_minutes > 0:
+                now = datetime.now()
+                if (now - last_heartbeat_at) >= timedelta(minutes=self.config.heartbeat_interval_minutes):
+                    self._log("--- 心跳检测正常 ---")
+                    last_heartbeat_at = now
+
+            time.sleep(poll_sleep_seconds)
+
+
+def main() -> int:
+    load_dotenv(".env")
+    config = _build_config()
+    app = QuantAlertApp(config)
+    try:
+        app.run_forever()
+    except KeyboardInterrupt:
+        print("已手动停止。")
+        return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
