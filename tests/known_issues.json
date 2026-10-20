@@ -1,0 +1,11 @@
+[
+  "test_signal_causality.TestPrefixCausality.test_buy_b_does_not_repaint_after_default_warmup",
+  "test_signal_causality.TestPrefixCausality.test_sell_s_does_not_repaint_after_default_warmup",
+  "test_signal_causality.TestPrefixCausality.test_inner_divergences_do_not_repaint",
+  "test_signal_causality.TestPrefixCausality.test_composite_divergences_do_not_repaint",
+  "test_signal_causality.TestPrefixCausality.test_raw_backset_does_not_change_past",
+  "test_signal_causality.TestPrefixCausality.test_original_roll_first_element_is_not_future_event",
+  "test_signal_causality.TestZigSemantics.test_initial_downward_move_is_recognized",
+  "test_signal_causality.TestZigSemantics.test_rising_run_has_no_confirmed_interior_peak",
+  "test_signal_causality.TestZigSemantics.test_falling_run_has_no_confirmed_interior_trough"
+]

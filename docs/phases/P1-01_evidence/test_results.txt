@@ -1,0 +1,35 @@
+Environment: Python 3.11.15 | numpy 2.4.6 | pandas 3.0.5 | Flask 3.1.3
+Timezone: Asia/Shanghai; date: 2026-10-19
+
+python -B -m unittest discover -s tests -p test_index_market.py -q
+Ran 32 tests in 0.226s
+OK; exit 0
+
+python -B run_tests.py regression
+Suite=regression: 237 tests; regression=237, known=9
+Ran 237 tests in 12.266s
+OK; exit 0
+
+python -B run_tests.py known
+Suite=known: 9 tests; regression=237, known=9
+Ran 9 tests in 2.894s
+FAILED (failures=9); exit 1
+All nine are ordinary assertions, no errors or skips:
+test_buy_b_does_not_repaint_after_default_warmup
+test_composite_divergences_do_not_repaint
+test_inner_divergences_do_not_repaint
+test_original_roll_first_element_is_not_future_event
+test_raw_backset_does_not_change_past
+test_sell_s_does_not_repaint_after_default_warmup
+test_falling_run_has_no_confirmed_interior_trough
+test_initial_downward_move_is_recognized
+test_rising_run_has_no_confirmed_interior_peak
+
+Inline template script: /usr/local/bin/node --check, exit 0
+Browser: existing Flask app, bounded temporary localhost preview, synthetic fixture
+with a visible "离线合成样例" banner; four cards and MA charts inspected.
+Temporary preview stopped, temporary directory removed by context manager.
+No real market data/notification/scanner started during offline tests or preview.
+
+This file preserves the actual summary, not full repeated regression tracebacks.
+Real-source probes are separately recorded in real_source_validation.json.

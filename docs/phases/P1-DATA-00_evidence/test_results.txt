@@ -1,0 +1,8 @@
+P1-DATA-00 / 2026-10-20 Asia/Shanghai
+Python 3.11.15 | numpy 2.4.6 | pandas 3.0.5 | Flask 3.1.3
+Index suite: 47 passed (offline).
+Final regression: 311 tests in 11.942s, OK, exit 0.
+Known: 9 tests in 2.866s, FAILED(failures=9), exit 1; original defects retained.
+Dashboard Node: 30 assertions passed (offline).
+JS syntax and git diff --check passed.
+Real four-index Flask and live 8091 API results are separate JSON evidence.

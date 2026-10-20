@@ -1,0 +1,23 @@
+2026-10-19 Asia/Shanghai
+Python 3.11.15 | numpy 2.4.6 | pandas 3.0.5 | Flask 3.1.3
+
+New WSGI/UI suite: 7 tests passed, 0.012s, exit 0.
+python -B run_tests.py regression: 244 passed, 11.932s, exit 0.
+python -B run_tests.py known: 9 ordinary assertion failures, 2.916s, exit 1.
+No new regression failures or skipped known issues.
+node tests/dashboard_view.test.cjs: 20 assertions passed.
+node --check webapp/static/dashboard.js: exit 0.
+git diff --check: exit 0.
+
+Browser (1280x720 desktop, offline synthetic fixture):
+- Four index selections update title, selection, chart and quality facts.
+- 20-session range updates displayed count.
+- Weak-trend filter returns one index; all-trend filter restores four.
+- Ascending change sort: -0.25%, -0.20%, -0.14%, -0.07%.
+- Stale, unavailable and insufficient states inspected separately.
+- Port 8090 retains original template; 8091 displays new light theme.
+- No mobile tests requested after user cancellation.
+- Original preview terminated by its 300s deadline; ports no longer listening.
+
+Screenshots are actual browser captures of synthetic fixtures, not live market data.
+Production source, calculations, signal policy and minute cache were unchanged.

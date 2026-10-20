@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>大盘晴雨表 · QuantTrading</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='breadth.css') }}">
+  <script defer src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+  <script id="dashboardConfig" type="application/json">{{ {'indices': index_specs, 'indexApi': url_for('api_market_indices'), 'statusApi': url_for('api_status'), 'preview': dashboard_preview|default(false)}|tojson }}</script>
+  <script defer src="{{ url_for('static', filename='dashboard.js') }}"></script>
+  <script defer src="{{ url_for('static', filename='breadth.js') }}"></script>
+</head>
+<body>
+  {% if dashboard_preview|default(false) %}<div class="preview-banner">离线合成样例 · 仅用于 UI 验收，不是真实市场行情</div>{% endif %}
+  <aside class="sider">
+    <a class="brand" href="#overview" aria-label="QuantTrading 首页"><span class="brand-mark">Q<span></span></span><span>QuantTrading<small>量化研究工作台</small></span></a>
+    <div class="nav-caption">市场分析</div>
+    <nav aria-label="主导航">
+      <a class="nav-item active" href="#overview"><svg viewBox="0 0 24 24"><path d="M3 13h7V3H3zm11 8h7V11h-7zM3 21h7v-4H3zM14 7h7V3h-7z"/></svg>大盘晴雨表</a>
+      <a class="nav-item" href="#breadth"><svg viewBox="0 0 24 24"><path d="M4 20V9m5 11V4m6 16v-8m5 8V6"/></svg>市场广度</a>
+      <a class="nav-item" href="#analysis"><svg viewBox="0 0 24 24"><path d="M4 20V4m0 16h16M8 15l4-6 4 3 5-8"/></svg>均线与趋势</a>
+      <a class="nav-item" href="#dataQuality"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-8 9-8 9s-8-4-8-9V6zM8 12l3 3 5-6"/></svg>数据质量</a>
+    </nav>
+    <div class="nav-divider"></div>
+    <div class="nav-caption">系统</div>
+    <a class="nav-item" id="legacyLink" href="http://127.0.0.1:8090/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24"><path d="M13 4h7v7m0-7L9 15M11 5H4v15h15v-7"/></svg>原版监控<span class="external">↗</span></a>
+    <div class="sider-footer"><span class="version">P1-02A</span><p>指数与市场广度</p><small>客观观察市场，不生成交易信号</small></div>
+  </aside>
+
+  <div class="workspace">
+    <header class="header">
+      <div class="breadcrumb">QuantTrading <span>/</span> 市场分析 <span>/</span> <strong>大盘晴雨表</strong></div>
+      <div class="header-meta"><span id="updatedAt">数据更新 —</span><span class="header-separator"></span><span id="systemStatus" class="service-status"><i class="dot"></i>连接中</span></div>
+    </header>
+    <main id="overview">
+      <div class="page-heading"><div><div class="title-line"><h1>大盘晴雨表</h1><span class="tag blue">指数日线</span></div><p>从价格与均线，观察市场趋势。正式结论仅使用已完成日线。</p></div><button id="refreshButton" class="button primary"><span aria-hidden="true">↻</span> 刷新数据</button></div>
+      <div class="stat-grid" id="indexCards" aria-label="主要指数" aria-busy="true">
+        {% for spec in index_specs %}
+        <button class="stat-card{% if loop.first %} selected{% endif %}" data-index="{{ spec.code }}" aria-pressed="{{ 'true' if loop.first else 'false' }}">
+          <div class="stat-heading"><span>{{ spec.name }}</span><span class="code">{{ spec.code }}</span></div>
+          <div class="skeleton skeleton-price"></div><div class="skeleton skeleton-foot"></div>
+        </button>
+        {% endfor %}
+      </div>
+
+      <section class="card trend-card" aria-labelledby="chartTitle">
+        <div class="card-heading"><div class="chart-heading"><h2 id="chartTitle">指数趋势</h2><span id="chartSubtitle" class="muted">正在读取日线数据</span></div><div class="chart-controls"><label class="sr-only" for="indexSelect">选择指数</label><select id="indexSelect" aria-label="选择指数">{% for spec in index_specs %}<option value="{{ spec.code }}">{{ spec.name }}</option>{% endfor %}</select><div class="segmented" role="group" aria-label="图表显示范围"><button data-range="20" aria-pressed="false">近20日</button><button data-range="60" aria-pressed="false">近60日</button><button data-range="120" class="active" aria-pressed="true">近120日</button></div></div></div>
+        <div id="chartStage" class="chart-stage" aria-label="指数收盘及均线趋势图"><div class="chart-placeholder"><div class="skeleton skeleton-chart"></div><span>正在加载趋势数据…</span></div></div>
+        <div class="chart-caption"><span><i class="info-dot"></i>仅展示已完成日线；临时值不计入正式趋势</span><span id="chartCount">—</span></div>
+      </section>
+
+      <section id="breadth" class="card breadth" data-api="{{ url_for('api_market_breadth') }}" aria-labelledby="breadthTitle">
+        <div class="card-heading"><div><div class="title-line"><h2 id="breadthTitle">市场广度</h2><span class="tag gray" id="breadthStatus">正在获取</span></div><p class="section-note">目标范围：沪深北 A 股 · 不以指数或自选股代替全市场</p></div><button class="button" id="breadthRefresh">更新广度</button></div>
+        <div class="breadth-body">
+          <div class="alert info" id="breadthAlert" role="status" aria-live="polite"><span class="alert-icon">i</span><div><strong>等待可核验的批量快照</strong><p>缺少独立基准名单时，股票覆盖率显示未知，不把接口返回数量视为100%覆盖。</p></div></div>
+          <div class="breadth-stats" id="breadthStats" aria-busy="true">
+            <article><div class="fact-label">上涨家数</div><div class="breadth-value up" id="breadthUp">—</div><small>有效涨跌幅 &gt; 0</small></article>
+            <article><div class="fact-label">下跌家数</div><div class="breadth-value down" id="breadthDown">—</div><small>有效涨跌幅 &lt; 0</small></article>
+            <article><div class="fact-label">平盘家数</div><div class="breadth-value" id="breadthFlat">—</div><small>有成交且涨跌幅 = 0</small></article>
+            <article><div class="fact-label">上涨占比</div><div class="breadth-value" id="breadthAdvance">—</div><small id="breadthDenominator">有效涨跌幅样本 — 只</small></article>
+            <article><div class="fact-label" id="breadthAmountLabel">样本成交额</div><div class="breadth-value" id="breadthAmount">—</div><small>亿元 · 较前一交易日变化不可用</small></article>
+          </div>
+          <div class="breadth-thresholds" id="breadthThresholds">涨幅 &gt; 3%：—　 &gt; 5%：—　│　 跌幅 &lt; -3%：—　 &lt; -5%：—</div>
+          <div class="breadth-charts"><div><div class="breadth-chart-title">涨跌构成 <span id="breadthRatio">上涨 / 下跌 —</span></div><div class="breadth-chart" id="breadthDirections"><div class="chart-placeholder">等待有效快照…</div></div></div><div><div class="breadth-chart-title">涨跌幅区间分布 <span>互斥分组 · 涨跌幅单位 %</span></div><div class="breadth-chart" id="breadthDistribution"><div class="chart-placeholder">等待有效快照…</div></div></div></div>
+          <div class="breadth-quality" id="breadthQuality"><div class="fact-label">数据质量</div><p class="muted">正在读取采集日期、样本范围与来源…</p></div>
+          <details class="breadth-detail"><summary>统计口径与原始诊断</summary><div id="breadthDiagnostics">尚无快照。</div><p>ST及新上市股票不因名称被排除；ETF、基金、B股、指数及未支持身份不计入A股。停牌、零成交、缺昨收及缺涨跌幅不计为平盘。阈值“超过”使用严格大于/小于；分布边界以图中区间为准。</p><p>不计算MA20比例，不生成市场环境评分或交易建议。没有可比的两日同口径完整数据，不估算成交额变化。</p></details>
+        </div>
+      </section>
+
+      <section id="analysis" class="card table-card" aria-labelledby="analysisTitle">
+        <div class="card-heading"><div><h2 id="analysisTitle">均线与趋势</h2><p class="section-note">同一口径对比四个主要指数</p></div><div class="table-controls"><label for="trendFilter">趋势</label><select id="trendFilter"><option value="all">全部趋势</option><option>偏强</option><option>震荡</option><option>偏弱</option><option>数据不足</option></select><label class="sr-only" for="sortOrder">表格排序</label><select id="sortOrder" aria-label="表格排序"><option value="default">默认排序</option><option value="desc">涨跌幅 ↓</option><option value="asc">涨跌幅 ↑</option></select></div></div>
+        <div class="table-scroll"><table><thead><tr><th scope="col">指数</th><th scope="col" class="numeric">正式收盘</th><th scope="col" class="numeric"><button id="changeSort" class="table-sort" aria-label="按涨跌幅排序">涨跌幅 ⇅</button></th><th scope="col" class="numeric">MA5</th><th scope="col" class="numeric">MA10</th><th scope="col" class="numeric">MA20</th><th scope="col" class="numeric">MA60</th><th scope="col">趋势</th><th scope="col">分析日期</th><th scope="col">行情质量</th></tr></thead><tbody id="analysisRows"><tr><td colspan="10"><div class="table-loading"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div></td></tr></tbody></table></div>
+        <div class="table-footer"><span id="tableCount">正在加载4个指数</span><span>均线方向：与5根前比较 · 涨跌幅单位：%</span></div>
+      </section>
+
+      <section id="dataQuality" class="card quality-card" aria-labelledby="qualityTitle">
+        <div class="card-heading"><h2 id="qualityTitle">数据质量与分析口径</h2><span id="qualityTag" class="tag">待获取</span></div>
+        <div class="quality-content"><div id="qualityFacts" class="quality-facts"><span class="muted">数据获取后显示对应指数的日期、状态与来源。</span></div><div id="qualityAlert" role="status" aria-live="polite" class="alert info"><span class="alert-icon">i</span><div><strong>先确认数据，再阅读趋势</strong><p>盘中日线或无完成证据的末根保持临时 / 未知状态。</p></div></div></div>
+        <details class="method-details"><summary>查看趋势判断规则与数据限制 <span>＋</span></summary><div class="method-body"><p><strong>偏强：</strong>收盘 &gt; MA20 &gt; MA60，且两条均线均向上。<strong>偏弱：</strong>收盘 &lt; MA20 &lt; MA60，且两条均线均向下。其余充分数据为震荡。</p><p>至少需要120根有效已完成日线。MA为简单移动平均，方向比较5根前数值。数据不足、日历缺失或交易日断档，不生成正式趋势。</p><p>指数日线来源以所选指数的数据质量区为准；原始指数点位，不做个股复权。末根没有最终完成标志时，等待后续交易日记录佐证。过期数据的结论仅对应所示历史日期，不代表当前市场。</p></div></details>
+      </section>
+      <footer class="page-footer"><span>QuantTrading · 量化研究工作台</span><span>仅作客观技术观察，不构成投资建议</span></footer>
+    </main>
+  </div>
+</body>
+</html>

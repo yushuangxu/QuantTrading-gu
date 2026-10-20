@@ -1,0 +1,36 @@
+{
+  "date": "2026-10-19",
+  "timezone": "Asia/Shanghai",
+  "purpose": "有限前台只读指数接口核验；不是离线测试、收益回测或稳定性认证",
+  "endpoint": "https://push2his.eastmoney.com/api/qt/stock/kline/get",
+  "initial_probe": {
+    "parameters": {
+      "fields1": "f1,f2,f3,f4,f5,f6",
+      "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61",
+      "klt": "101", "fqt": "0", "beg": "20250101", "end": "20261019", "lmt": "400"
+    },
+    "note": "工具输出实际为每指数432行，不能把lmt请求值当实际返回数量。只保存当时输出的身份、行数和末行，未保存完整响应或伪造逐请求时间。",
+    "results": [
+      {"code":"000001.SH", "secid":"1.000001", "returned_name":"上证指数", "returned_market":1, "http_status":200, "rows":432, "last_raw":"2026-10-19,3694.12,3730.92,3743.80,3692.29,417791248,687009728035.90,1.39,0.39,14.64,0.86"},
+      {"code":"000300.SH", "secid":"1.000300", "returned_name":"沪深300", "returned_market":1, "http_status":200, "rows":432, "last_raw":"2026-10-19,4148.35,4174.53,4192.02,4143.66,151084956,363447753986.00,1.16,0.09,3.92,0.45"},
+      {"code":"399006.SZ", "secid":"0.399006", "returned_name":"创业板指", "returned_market":0, "http_status":200, "rows":432, "last_raw":"2026-10-19,2760.35,2746.29,2770.08,2708.92,155910255,358375208456.91,2.21,-0.94,-26.09,2.74"},
+      {"code":"000852.SH", "secid":"1.000852", "returned_name":"中证1000", "returned_market":1, "http_status":200, "rows":432, "last_raw":"2026-10-19,6639.94,6698.30,6746.32,6578.94,184022512,279791840431.40,2.50,0.24,16.36,1.84"}
+    ]
+  },
+  "production_adapter_probe": {
+    "beg": "20250417",
+    "end": "20261019",
+    "indices_attempted": ["000001.SH", "000300.SH", "399006.SZ", "000852.SH"],
+    "successful": 0,
+    "error": "requests ProxyError: Unable to connect to proxy / RemoteDisconnected: Remote end closed connection without response",
+    "note": "请求在代理/传输层失败，未获得可供实际适配器解析的成功响应；不能据此声称生产适配器已完成真实端到端验收。"
+  },
+  "bounded_recheck": {
+    "index": "000001.SH",
+    "variants": ["原首次成功参数", "去掉lmt", "beg改为20250417"],
+    "successful": 0,
+    "error": "同类ProxyError/RemoteDisconnected",
+    "conclusion": "复核包含原成功参数，仍失败；不足以归因为某一个参数，未绕过代理或增加自动切源。"
+  },
+  "side_effects": "无真实行情持久化、无分钟缓存修改、无推送、无下单；有限并发仅用于四指数只读核验，不是常驻后台任务。"
+}

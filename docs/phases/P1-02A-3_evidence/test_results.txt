@@ -1,0 +1,16 @@
+P1-02A-3 — 2026-10-19 Asia/Shanghai
+Python 3.11.15 | numpy 2.4.6 | pandas 3.0.5 | Flask 3.1.3
+
+/opt/miniconda3/envs/quant/bin/python -B run_tests.py regression
+Ran 296 tests in 11.907s
+OK; exit_code=0
+
+/opt/miniconda3/envs/quant/bin/python -B run_tests.py known
+Ran 9 tests in 2.868s
+FAILED (failures=9); exit_code=1
+Original nine algorithm issue assertions/manifest unchanged, no skips.
+
+Diagnostic script syntax and saved evidence consistency: passed (offline).
+git diff --check: passed.
+Production code, source configuration, UI and caches unchanged.
+13 finite actual requests are recorded separately; 0 qualified complete snapshots.

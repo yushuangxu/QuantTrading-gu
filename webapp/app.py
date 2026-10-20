@@ -5,16 +5,53 @@ import os
 import re
 import shutil
 import subprocess
+import sys
+from pathlib import Path
+from threading import Lock
 from datetime import datetime, date
 from flask import Flask, render_template, jsonify, request
 
+# Support both `python -m webapp.app` and the existing script entrypoint.
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+from index_market import INDICES, IndexMarketService
+
 app = Flask(__name__)
 
-BASE_PATH = "/home/QuantTrading-gu"
+BASE_PATH = os.environ.get("QUANT_BASE_PATH", str(PROJECT_ROOT))
 LOGS_PATH = os.path.join(BASE_PATH, "logs")
 WEBAPP_PATH = os.path.join(BASE_PATH, "webapp")
 TICKERS_1 = os.path.join(BASE_PATH, "tickers_1.txt")
 TICKERS_2 = os.path.join(BASE_PATH, "tickers_2.txt")
+_index_service_lock = Lock()
+_breadth_service_lock = Lock()
+
+
+def get_index_service():
+    # Construct lazily: importing/starting Flask performs no market requests,
+    # cache writes, daemon launches or scans. Injectable for offline WSGI tests.
+    service = app.extensions.get('index_market')
+    if service is None:
+        with _index_service_lock:
+            service = app.extensions.get('index_market')
+            if service is None:
+                service = IndexMarketService(Path(BASE_PATH) / 'runtime' / 'index_daily',
+                                             Path(BASE_PATH) / 'runtime' / 'calendar')
+                app.extensions['index_market'] = service
+    return service
+
+
+def get_breadth_service():
+    # No requests, scans or filesystem writes at Web startup.
+    with _breadth_service_lock:
+        service = app.extensions.get('market_breadth')
+        if service is None:
+            from breadth_data import BreadthService
+            service = BreadthService(Path(BASE_PATH) / 'runtime' / 'market_breadth',
+                                     Path(BASE_PATH) / 'runtime' / 'calendar')
+            app.extensions['market_breadth'] = service
+        return service
 
 # ===================== 工具函数 =====================
 
@@ -131,7 +168,29 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/dashboard")
+def dashboard():
+    return render_template('dashboard.html', index_specs=[
+        {'code': spec.code, 'name': spec.name} for spec in INDICES])
+
+
 # ===================== API 路由 =====================
+
+@app.route("/api/market/indices")
+def api_market_indices():
+    return jsonify({'indices': [{'code': spec.code, 'name': spec.name} for spec in INDICES]})
+
+
+@app.route('/api/market/breadth')
+def api_market_breadth():
+    return jsonify(get_breadth_service().get_snapshot())
+
+
+@app.route("/api/market/index/<code>")
+def api_market_index(code):
+    if code not in {spec.code for spec in INDICES}:
+        return jsonify({'error': '不支持的指数代码'}), 404
+    return jsonify(get_index_service().get_index(code))
 
 @app.route("/api/status")
 def api_status():

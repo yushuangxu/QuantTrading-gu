@@ -1,0 +1,264 @@
+test_3000_history_and_200_overlapping_bars_preserve_all_history (test_bar_cache_merge.TestBarCacheMerge.test_3000_history_and_200_overlapping_bars_preserve_all_history) ... ok
+test_3000_history_and_200_with_100_new_times_gives_3100 (test_bar_cache_merge.TestBarCacheMerge.test_3000_history_and_200_with_100_new_times_gives_3100) ... ok
+test_append_new_times_and_fill_gap_without_truncation (test_bar_cache_merge.TestBarCacheMerge.test_append_new_times_and_fill_gap_without_truncation) ... ok
+test_conflicting_duplicates_within_a_batch_are_rejected (test_bar_cache_merge.TestBarCacheMerge.test_conflicting_duplicates_within_a_batch_are_rejected) ... ok
+test_datetime_input_normalized_to_string (test_bar_cache_merge.TestBarCacheMerge.test_datetime_input_normalized_to_string) ... ok
+test_different_frequencies_rejected_even_with_same_timestamps (test_bar_cache_merge.TestBarCacheMerge.test_different_frequencies_rejected_even_with_same_timestamps) ... ok
+test_different_securities_rejected (test_bar_cache_merge.TestBarCacheMerge.test_different_securities_rejected) ... ok
+test_empty_incoming_preserves_history_and_first_fetch_works (test_bar_cache_merge.TestBarCacheMerge.test_empty_incoming_preserves_history_and_first_fetch_works) ... ok
+test_explicit_frequency_column_is_supported_and_checked (test_bar_cache_merge.TestBarCacheMerge.test_explicit_frequency_column_is_supported_and_checked) ... ok
+test_identical_duplicates_in_a_batch_are_collapsed (test_bar_cache_merge.TestBarCacheMerge.test_identical_duplicates_in_a_batch_are_collapsed) ... ok
+test_inputs_and_attrs_not_modified_on_success (test_bar_cache_merge.TestBarCacheMerge.test_inputs_and_attrs_not_modified_on_success) ... ok
+test_inputs_not_modified_on_error (test_bar_cache_merge.TestBarCacheMerge.test_inputs_not_modified_on_error) ... ok
+test_invalid_history_is_not_replaced_by_valid_recent_data (test_bar_cache_merge.TestBarCacheMerge.test_invalid_history_is_not_replaced_by_valid_recent_data) ... ok
+test_malformed_numeric_row_rejects_whole_batch (test_bar_cache_merge.TestBarCacheMerge.test_malformed_numeric_row_rejects_whole_batch) ... ok
+test_merge_keeps_original_indicator_warmup_origin (test_bar_cache_merge.TestBarCacheMerge.test_merge_keeps_original_indicator_warmup_origin) ... ok
+test_minute_and_zero_second_formats_share_one_key (test_bar_cache_merge.TestBarCacheMerge.test_minute_and_zero_second_formats_share_one_key) ... ok
+test_missing_or_extra_columns_are_not_silently_discarded (test_bar_cache_merge.TestBarCacheMerge.test_missing_or_extra_columns_are_not_silently_discarded) ... ok
+test_missing_or_unknown_frequency_identity_is_rejected (test_bar_cache_merge.TestBarCacheMerge.test_missing_or_unknown_frequency_identity_is_rejected) ... ok
+test_mixed_security_rows_rejected_even_if_attrs_claim_target (test_bar_cache_merge.TestBarCacheMerge.test_mixed_security_rows_rejected_even_if_attrs_claim_target) ... ok
+test_period_row_metadata_cannot_override_conflicting_attrs (test_bar_cache_merge.TestBarCacheMerge.test_period_row_metadata_cannot_override_conflicting_attrs) ... ok
+test_repeated_merge_is_idempotent (test_bar_cache_merge.TestBarCacheMerge.test_repeated_merge_is_idempotent) ... ok
+test_revision_replaces_entire_ohlcv_and_amount_row (test_bar_cache_merge.TestBarCacheMerge.test_revision_replaces_entire_ohlcv_and_amount_row) ... ok
+test_unrecognized_or_non_aligned_time_not_silently_floored (test_bar_cache_merge.TestBarCacheMerge.test_unrecognized_or_non_aligned_time_not_silently_floored) ... ok
+test_unrecognized_security_identity_rejected (test_bar_cache_merge.TestBarCacheMerge.test_unrecognized_security_identity_rejected) ... ok
+test_unsorted_inputs_result_in_ascending_time (test_bar_cache_merge.TestBarCacheMerge.test_unsorted_inputs_result_in_ascending_time) ... ok
+test_api_normalizes_and_tags_input_before_merge (test_bar_cache_merge.TestSharedFetcherMergeIntegration.test_api_normalizes_and_tags_input_before_merge) ... ok
+test_corrupt_restore_is_explicit_and_does_not_clear_memory_or_file (test_bar_cache_merge.TestSharedFetcherMergeIntegration.test_corrupt_restore_is_explicit_and_does_not_clear_memory_or_file) ... ok
+test_distinct_frequency_instances_are_isolated (test_bar_cache_merge.TestSharedFetcherMergeIntegration.test_distinct_frequency_instances_are_isolated) ... ok
+test_invalid_configuration_does_not_create_cache_or_api (test_bar_cache_merge.TestSharedFetcherMergeIntegration.test_invalid_configuration_does_not_create_cache_or_api) ... ok
+test_legacy_eight_column_restore_then_refresh_keeps_3000 (test_bar_cache_merge.TestSharedFetcherMergeIntegration.test_legacy_eight_column_restore_then_refresh_keeps_3000) ... ok
+test_malformed_history_blocks_refresh_instead_of_replacing_it (test_bar_cache_merge.TestSharedFetcherMergeIntegration.test_malformed_history_blocks_refresh_instead_of_replacing_it) ... ok
+test_no_result_keeps_history (test_bar_cache_merge.TestSharedFetcherMergeIntegration.test_no_result_keeps_history) ... ok
+test_real_fetch_rejects_invalid_api_batch_and_keeps_existing_memory (test_bar_cache_merge.TestSharedFetcherMergeIntegration.test_real_fetch_rejects_invalid_api_batch_and_keeps_existing_memory) ... ok
+test_real_tick_merges_and_counts_only_new_times (test_bar_cache_merge.TestSharedFetcherMergeIntegration.test_real_tick_merges_and_counts_only_new_times) ... ok
+test_same_time_revision_not_counted_as_new_even_with_format_change (test_bar_cache_merge.TestSharedFetcherMergeIntegration.test_same_time_revision_not_counted_as_new_even_with_format_change) ... ok
+test_tick_failure_preserves_history_latest_time_and_counter (test_bar_cache_merge.TestSharedFetcherMergeIntegration.test_tick_failure_preserves_history_latest_time_and_counter) ... ok
+test_two_securities_update_separate_cache_entries (test_bar_cache_merge.TestSharedFetcherMergeIntegration.test_two_securities_update_separate_cache_entries) ... ok
+test_wrong_period_column_in_legacy_file_is_not_stripped (test_bar_cache_merge.TestSharedFetcherMergeIntegration.test_wrong_period_column_in_legacy_file_is_not_stripped) ... ok
+test_bs_jb_js_and_causal_crosses_never_confirm_with_unknown_closure (test_candidate_quality_gate.TestCandidatePolicyAndScan.test_bs_jb_js_and_causal_crosses_never_confirm_with_unknown_closure) ... ok
+test_confirmed_immutability_and_restart_validation_are_preserved (test_candidate_quality_gate.TestCandidatePolicyAndScan.test_confirmed_immutability_and_restart_validation_are_preserved) ... ok
+test_current_candidate_content_explicitly_warns_and_no_real_push (test_candidate_quality_gate.TestCandidatePolicyAndScan.test_current_candidate_content_explicitly_warns_and_no_real_push) ... ok
+test_dedup_key_includes_period_and_normalizes_minute_format (test_candidate_quality_gate.TestCandidatePolicyAndScan.test_dedup_key_includes_period_and_normalizes_minute_format) ... ok
+test_historical_markers_inactive_and_wrong_identity_cannot_notify (test_candidate_quality_gate.TestCandidatePolicyAndScan.test_historical_markers_inactive_and_wrong_identity_cannot_notify) ... ok
+test_missing_quality_sidecar_fails_closed_in_real_scanner (test_candidate_quality_gate.TestCandidatePolicyAndScan.test_missing_quality_sidecar_fails_closed_in_real_scanner) ... ok
+test_same_bar_repeat_scan_dedup_keeps_observations_and_withdrawals (test_candidate_quality_gate.TestCandidatePolicyAndScan.test_same_bar_repeat_scan_dedup_keeps_observations_and_withdrawals) ... ok
+test_stale_failure_unknown_and_conflict_scans_record_without_alert (test_candidate_quality_gate.TestCandidatePolicyAndScan.test_stale_failure_unknown_and_conflict_scans_record_without_alert) ... ok
+test_all_five_periods_support_independent_observation_quality (test_candidate_quality_gate.TestObservationFreshness.test_all_five_periods_support_independent_observation_quality) ... ok
+test_cache_and_one_live_success_cannot_prove_progress (test_candidate_quality_gate.TestObservationFreshness.test_cache_and_one_live_success_cannot_prove_progress) ... ok
+test_closed_input_conflict_blocks_even_after_new_successes (test_candidate_quality_gate.TestObservationFreshness.test_closed_input_conflict_blocks_even_after_new_successes) ... ok
+test_failure_resets_progress_and_recovery_requires_new_evidence (test_candidate_quality_gate.TestObservationFreshness.test_failure_resets_progress_and_recovery_requires_new_evidence) ... ok
+test_first_success_is_not_proof (test_candidate_quality_gate.TestObservationFreshness.test_first_success_is_not_proof) ... ok
+test_historical_row_correction_does_not_refresh_latest_progress (test_candidate_quality_gate.TestObservationFreshness.test_historical_row_correction_does_not_refresh_latest_progress) ... ok
+test_invalid_batch_blocks_candidates_without_erasing_prior_observations (test_candidate_quality_gate.TestObservationFreshness.test_invalid_batch_blocks_candidates_without_erasing_prior_observations) ... ok
+test_lunch_and_next_day_require_new_current_session_progress (test_candidate_quality_gate.TestObservationFreshness.test_lunch_and_next_day_require_new_current_session_progress) ... ok
+test_missing_calendar_or_request_time_does_not_unlock_candidate (test_candidate_quality_gate.TestObservationFreshness.test_missing_calendar_or_request_time_does_not_unlock_candidate) ... ok
+test_new_latest_label_is_progress_not_just_same_bar_revision (test_candidate_quality_gate.TestObservationFreshness.test_new_latest_label_is_progress_not_just_same_bar_revision) ... ok
+test_old_data_cannot_be_made_current_by_editing_ohlcv (test_candidate_quality_gate.TestObservationFreshness.test_old_data_cannot_be_made_current_by_editing_ohlcv) ... ok
+test_plausible_end_label_does_not_assert_completion_or_future_signal (test_candidate_quality_gate.TestObservationFreshness.test_plausible_end_label_does_not_assert_completion_or_future_signal) ... ok
+test_progress_expires_even_when_successes_keep_arriving (test_candidate_quality_gate.TestObservationFreshness.test_progress_expires_even_when_successes_keep_arriving) ... ok
+test_repeated_unchanged_success_does_not_unlock_candidate (test_candidate_quality_gate.TestObservationFreshness.test_repeated_unchanged_success_does_not_unlock_candidate) ... ok
+test_two_valid_live_revisions_allow_candidate_but_closure_stays_unknown (test_candidate_quality_gate.TestObservationFreshness.test_two_valid_live_revisions_allow_candidate_but_closure_stays_unknown) ... ok
+test_wrong_grid_or_far_future_labels_do_not_unlock (test_candidate_quality_gate.TestObservationFreshness.test_wrong_grid_or_far_future_labels_do_not_unlock) ... ok
+test_60min_afternoon_starts_new_session_not_lunch_spanning (test_market_data_state.TestBarCompletion.test_60min_afternoon_starts_new_session_not_lunch_spanning) ... ok
+test_all_periods_fake_verified_contract_start_and_end_boundaries (test_market_data_state.TestBarCompletion.test_all_periods_fake_verified_contract_start_and_end_boundaries) ... ok
+test_close_and_next_trading_day_need_source_evidence (test_market_data_state.TestBarCompletion.test_close_and_next_trading_day_need_source_evidence) ... ok
+test_future_successor_cannot_prove_completion (test_market_data_state.TestBarCompletion.test_future_successor_cannot_prove_completion) ... ok
+test_lunch_is_not_a_bar_and_does_not_finalize_latest (test_market_data_state.TestBarCompletion.test_lunch_is_not_a_bar_and_does_not_finalize_latest) ... ok
+test_open_auction_and_misaligned_labels_unknown (test_market_data_state.TestBarCompletion.test_open_auction_and_misaligned_labels_unknown) ... ok
+test_pytdx_all_periods_unknown_even_with_later_bar_or_after_close (test_market_data_state.TestBarCompletion.test_pytdx_all_periods_unknown_even_with_later_bar_or_after_close) ... ok
+test_successor_needs_explicit_source_guarantee (test_market_data_state.TestBarCompletion.test_successor_needs_explicit_source_guarantee) ... ok
+test_unknown_calendar_and_unverified_reference_are_unknown (test_market_data_state.TestBarCompletion.test_unknown_calendar_and_unverified_reference_are_unknown) ... ok
+test_cache_missing_malformed_and_conflicts_are_unknown (test_market_data_state.TestCalendar.test_cache_missing_malformed_and_conflicts_are_unknown) ... ok
+test_explicit_holiday_not_weekday_guessed_open (test_market_data_state.TestCalendar.test_explicit_holiday_not_weekday_guessed_open) ... ok
+test_connection_failure_and_empty_response_do_not_refresh_success (test_market_data_state.TestFetcherQualityIntegration.test_connection_failure_and_empty_response_do_not_refresh_success) ... ok
+test_disk_restore_is_unknown_and_does_not_touch_original_csv (test_market_data_state.TestFetcherQualityIntegration.test_disk_restore_is_unknown_and_does_not_touch_original_csv) ... ok
+test_real_fetch_tick_and_atomic_snapshot_attach_unknown_pytdx_state (test_market_data_state.TestFetcherQualityIntegration.test_real_fetch_tick_and_atomic_snapshot_attach_unknown_pytdx_state) ... ok
+test_real_scan_keeps_observations_but_suppresses_bad_quality_alerts (test_market_data_state.TestFetcherQualityIntegration.test_real_scan_keeps_observations_but_suppresses_bad_quality_alerts) ... ok
+test_same_bar_revision_retains_old_sidecar_observation (test_market_data_state.TestFetcherQualityIntegration.test_same_bar_revision_retains_old_sidecar_observation) ... ok
+test_transport_exception_keeps_history_and_marks_unavailable (test_market_data_state.TestFetcherQualityIntegration.test_transport_exception_keeps_history_and_marks_unavailable) ... ok
+test_all_periods_fresh_then_stale_after_trading_deadline (test_market_data_state.TestFreshness.test_all_periods_fresh_then_stale_after_trading_deadline) ... ok
+test_closed_source_revision_requires_review (test_market_data_state.TestFreshness.test_closed_source_revision_requires_review) ... ok
+test_disconnect_and_empty_are_unavailable_without_erasing_data (test_market_data_state.TestFreshness.test_disconnect_and_empty_are_unavailable_without_erasing_data) ... ok
+test_expired_forming_becomes_unknown_not_closed_without_fetch (test_market_data_state.TestFreshness.test_expired_forming_becomes_unknown_not_closed_without_fetch) ... ok
+test_future_labels_and_clock_rollback_never_fresh (test_market_data_state.TestFreshness.test_future_labels_and_clock_rollback_never_fresh) ... ok
+test_instruments_and_periods_isolated (test_market_data_state.TestFreshness.test_instruments_and_periods_isolated) ... ok
+test_lunch_and_overnight_and_weekend_do_not_age_completed_bars (test_market_data_state.TestFreshness.test_lunch_and_overnight_and_weekend_do_not_age_completed_bars) ... ok
+test_lunch_resume_and_next_day_old_bar_become_stale (test_market_data_state.TestFreshness.test_lunch_resume_and_next_day_old_bar_become_stale) ... ok
+test_missing_calendar_or_unknown_pytdx_semantics_never_fresh (test_market_data_state.TestFreshness.test_missing_calendar_or_unknown_pytdx_semantics_never_fresh) ... ok
+test_naive_observation_clock_rejected (test_market_data_state.TestFreshness.test_naive_observation_clock_rejected) ... ok
+test_no_success_and_cache_only_never_fresh (test_market_data_state.TestFreshness.test_no_success_and_cache_only_never_fresh) ... ok
+test_pytdx_unknown_can_still_be_detectably_stale (test_market_data_state.TestFreshness.test_pytdx_unknown_can_still_be_detectably_stale) ... ok
+test_records_all_required_times_and_source_status (test_market_data_state.TestFreshness.test_records_all_required_times_and_source_status) ... ok
+test_recovery_retains_last_error_but_can_be_fresh (test_market_data_state.TestFreshness.test_recovery_retains_last_error_but_can_be_fresh) ... ok
+test_repeated_success_old_bars_does_not_make_data_fresh (test_market_data_state.TestFreshness.test_repeated_success_old_bars_does_not_make_data_fresh) ... ok
+test_same_bar_revision_not_a_new_bar_and_history_not_overwritten (test_market_data_state.TestFreshness.test_same_bar_revision_not_a_new_bar_and_history_not_overwritten) ... ok
+test_unchanged_replies_do_not_refresh_progress_or_append_revisions (test_market_data_state.TestFreshness.test_unchanged_replies_do_not_refresh_progress_or_append_revisions) ... ok
+test_bs_and_jb_js_keep_original_restrictions (test_market_data_state.TestQualitySignalGate.test_bs_and_jb_js_keep_original_restrictions) ... ok
+test_confirmed_observation_not_overwritten_on_stale_or_revision (test_market_data_state.TestQualitySignalGate.test_confirmed_observation_not_overwritten_on_stale_or_revision) ... ok
+test_mismatched_security_period_bar_or_observation_cannot_confirm (test_market_data_state.TestQualitySignalGate.test_mismatched_security_period_bar_or_observation_cannot_confirm) ... ok
+test_raw_candidates_revisions_persist_with_quality_in_journal (test_market_data_state.TestQualitySignalGate.test_raw_candidates_revisions_persist_with_quality_in_journal) ... ok
+test_stale_unavailable_unknown_missing_or_forming_block_upgrade (test_market_data_state.TestQualitySignalGate.test_stale_unavailable_unknown_missing_or_forming_block_upgrade) ... ok
+test_verified_closed_fresh_and_causal_cross_only (test_market_data_state.TestQualitySignalGate.test_verified_closed_fresh_and_causal_cross_only) ... ok
+test_all_original_outputs_saved_and_input_not_mutated (test_signal_causality.TestPrefixCausality.test_all_original_outputs_saved_and_input_not_mutated) ... ok
+test_area_and_line_divergences_causal (test_signal_causality.TestPrefixCausality.test_area_and_line_divergences_causal) ... ok
+test_buy_b_does_not_repaint_after_default_warmup (test_signal_causality.TestPrefixCausality.test_buy_b_does_not_repaint_after_default_warmup) ... FAIL
+test_cci_causal (test_signal_causality.TestPrefixCausality.test_cci_causal) ... ok
+test_composite_divergences_do_not_repaint (test_signal_causality.TestPrefixCausality.test_composite_divergences_do_not_repaint) ... FAIL
+test_crosses_causal_and_nonvacuous (test_signal_causality.TestPrefixCausality.test_crosses_causal_and_nonvacuous) ... ok
+test_inner_divergences_do_not_repaint (test_signal_causality.TestPrefixCausality.test_inner_divergences_do_not_repaint) ... FAIL
+test_intrabar_revision_changes_current_not_completed_indicators (test_signal_causality.TestPrefixCausality.test_intrabar_revision_changes_current_not_completed_indicators) ... ok
+test_jb_js_and_wave_outputs_are_prefix_causal (test_signal_causality.TestPrefixCausality.test_jb_js_and_wave_outputs_are_prefix_causal) ... ok
+test_kdj_causal (test_signal_causality.TestPrefixCausality.test_kdj_causal) ... ok
+test_macd_causal (test_signal_causality.TestPrefixCausality.test_macd_causal) ... ok
+test_original_roll_first_element_is_not_future_event (test_signal_causality.TestPrefixCausality.test_original_roll_first_element_is_not_future_event) ... FAIL
+test_raw_backset_does_not_change_past (test_signal_causality.TestPrefixCausality.test_raw_backset_does_not_change_past) ... FAIL
+test_retrospective_annotation_is_not_same_as_realtime (test_signal_causality.TestPrefixCausality.test_retrospective_annotation_is_not_same_as_realtime) ... ok
+test_sell_s_does_not_repaint_after_default_warmup (test_signal_causality.TestPrefixCausality.test_sell_s_does_not_repaint_after_default_warmup) ... FAIL
+test_wrap_fix_reference_effect_is_measured_not_assumed (test_signal_causality.TestPrefixCausality.test_wrap_fix_reference_effect_is_measured_not_assumed) ... ok
+test_adapter_records_same_bar_withdrawal_without_mutating_signal (test_signal_policy.TestLegacyPolicyIntegration.test_adapter_records_same_bar_withdrawal_without_mutating_signal) ... ok
+test_classification_leaves_every_original_indicator_and_output_unchanged (test_signal_policy.TestLegacyPolicyIntegration.test_classification_leaves_every_original_indicator_and_output_unchanged) ... ok
+test_journal_write_failure_is_not_reported_as_recorded (test_signal_policy.TestLegacyPolicyIntegration.test_journal_write_failure_is_not_reported_as_recorded) ... ok
+test_later_bar_does_not_erase_an_earlier_observation (test_signal_policy.TestLegacyPolicyIntegration.test_later_bar_does_not_erase_an_earlier_observation) ... ok
+test_legacy_scan_and_message_methods_in_isolation (test_signal_policy.TestLegacyPolicyIntegration.test_legacy_scan_and_message_methods_in_isolation) ... FAIL
+test_notice_labels_candidates_and_invalid_without_claiming_a_buy (test_signal_policy.TestLegacyPolicyIntegration.test_notice_labels_candidates_and_invalid_without_claiming_a_buy) ... ok
+test_area_line_divergences_are_not_trade_confirmation (test_signal_policy.TestSignalClassification.test_area_line_divergences_are_not_trade_confirmation) ... ok
+test_backset_never_confirmed_even_closed_with_confirmation (test_signal_policy.TestSignalClassification.test_backset_never_confirmed_even_closed_with_confirmation) ... ok
+test_bad_values_do_not_become_active_by_python_truthiness (test_signal_policy.TestSignalClassification.test_bad_values_do_not_become_active_by_python_truthiness) ... ok
+test_confirmed_cross_requires_exact_validation_scope (test_signal_policy.TestSignalClassification.test_confirmed_cross_requires_exact_validation_scope) ... ok
+test_false_conditions_are_observations_not_confirmed_events (test_signal_policy.TestSignalClassification.test_false_conditions_are_observations_not_confirmed_events) ... ok
+test_historical_marker_stays_retrospective_even_with_verified_cross (test_signal_policy.TestSignalClassification.test_historical_marker_stays_retrospective_even_with_verified_cross) ... ok
+test_invalid_signals_and_raw_aliases (test_signal_policy.TestSignalClassification.test_invalid_signals_and_raw_aliases) ... ok
+test_jb_js_are_momentum_candidates_not_confirmed_reversals (test_signal_policy.TestSignalClassification.test_jb_js_are_momentum_candidates_not_confirmed_reversals) ... ok
+test_missing_and_naive_times_are_conservative (test_signal_policy.TestSignalClassification.test_missing_and_naive_times_are_conservative) ... ok
+test_records_and_nested_payload_are_immutable_snapshots (test_signal_policy.TestSignalClassification.test_records_and_nested_payload_are_immutable_snapshots) ... ok
+test_required_output_fields_and_json_roundtrip (test_signal_policy.TestSignalClassification.test_required_output_fields_and_json_roundtrip) ... ok
+test_temporal_order_does_not_confirm_future_or_backdated_events (test_signal_policy.TestSignalClassification.test_temporal_order_does_not_confirm_future_or_backdated_events) ... ok
+test_time_meanings_are_separate_and_timezone_normalized (test_signal_policy.TestSignalClassification.test_time_meanings_are_separate_and_timezone_normalized) ... ok
+test_unclosed_bar_cannot_confirm_any_cross (test_signal_policy.TestSignalClassification.test_unclosed_bar_cannot_confirm_any_cross) ... ok
+test_unknown_bar_state_not_treated_as_truthy (test_signal_policy.TestSignalClassification.test_unknown_bar_state_not_treated_as_truthy) ... ok
+test_unknown_signal_and_indicator_snapshots_deny_trade_plans (test_signal_policy.TestSignalClassification.test_unknown_signal_and_indicator_snapshots_deny_trade_plans) ... ok
+test_backdated_or_unidentifiable_records_rejected (test_signal_policy.TestSignalHistory.test_backdated_or_unidentifiable_records_rejected) ... ok
+test_confirmed_conflict_is_rejected_after_restart_without_disk_write (test_signal_policy.TestSignalHistory.test_confirmed_conflict_is_rejected_after_restart_without_disk_write) ... ok
+test_confirmed_event_cannot_be_silently_recomputed (test_signal_policy.TestSignalHistory.test_confirmed_event_cannot_be_silently_recomputed) ... ok
+test_corrupt_journal_is_not_silently_replaced (test_signal_policy.TestSignalHistory.test_corrupt_journal_is_not_silently_replaced) ... ok
+test_forged_confirmation_cannot_be_loaded_or_appended (test_signal_policy.TestSignalHistory.test_forged_confirmation_cannot_be_loaded_or_appended) ... ok
+test_history_distinguishes_instrument_period_pool_and_revision (test_signal_policy.TestSignalHistory.test_history_distinguishes_instrument_period_pool_and_revision) ... ok
+test_identical_confirmed_fact_can_be_observed_later (test_signal_policy.TestSignalHistory.test_identical_confirmed_fact_can_be_observed_later) ... ok
+test_live_and_retrospective_records_are_physically_separate (test_signal_policy.TestSignalHistory.test_live_and_retrospective_records_are_physically_separate) ... ok
+test_verified_real_crosses_remain_confirmed_after_future_append (test_signal_policy.TestSignalHistory.test_verified_real_crosses_remain_confirmed_after_future_append) ... ok
+test_withdrawal_appends_without_erasing_candidate (test_signal_policy.TestSignalHistory.test_withdrawal_appends_without_erasing_candidate) ... ok
+test_withdrawal_survives_journal_restart (test_signal_policy.TestSignalHistory.test_withdrawal_survives_journal_restart) ... ok
+test_cci_independent_window_reference (test_signal_reachability.TestIndicatorReference.test_cci_independent_window_reference) ... ok
+test_cross_equal_boundary_and_first_row (test_signal_reachability.TestIndicatorReference.test_cross_equal_boundary_and_first_row) ... ok
+test_kdj_independent_first_valid_rsv_reference (test_signal_reachability.TestIndicatorReference.test_kdj_independent_first_valid_rsv_reference) ... ok
+test_macd_independent_recursive_reference (test_signal_reachability.TestIndicatorReference.test_macd_independent_recursive_reference) ... ok
+test_actual_cross_and_all_divergence_components_exercised (test_signal_reachability.TestReachability.test_actual_cross_and_all_divergence_components_exercised) ... ok
+test_bottom_contradiction_exhaustive_sign_states (test_signal_reachability.TestReachability.test_bottom_contradiction_exhaustive_sign_states) ... ok
+test_original_six_signal_equations_match_outputs (test_signal_reachability.TestReachability.test_original_six_signal_equations_match_outputs) ... ok
+test_strong_components_are_already_disjoint_on_every_prefix (test_signal_reachability.TestReachability.test_strong_components_are_already_disjoint_on_every_prefix) ... ok
+test_top_contradiction_exhaustive_sign_states (test_signal_reachability.TestReachability.test_top_contradiction_exhaustive_sign_states) ... ok
+test_falling_run_has_no_confirmed_interior_trough (test_signal_reachability.TestZigSemantics.test_falling_run_has_no_confirmed_interior_trough) ... FAIL
+test_initial_downward_move_is_recognized (test_signal_reachability.TestZigSemantics.test_initial_downward_move_is_recognized) ... FAIL
+test_jb_js_can_mark_continuing_macd_run_without_turn (test_signal_reachability.TestZigSemantics.test_jb_js_can_mark_continuing_macd_run_without_turn) ... ok
+test_rising_run_has_no_confirmed_interior_peak (test_signal_reachability.TestZigSemantics.test_rising_run_has_no_confirmed_interior_peak) ... FAIL
+test_zero_crossing_sensitivity_and_direction_asymmetry_measured (test_signal_reachability.TestZigSemantics.test_zero_crossing_sensitivity_and_direction_asymmetry_measured) ... ok
+test_zig_is_append_only_not_a_future_function (test_signal_reachability.TestZigSemantics.test_zig_is_append_only_not_a_future_function) ... ok
+
+======================================================================
+FAIL: test_buy_b_does_not_repaint_after_default_warmup (test_signal_causality.TestPrefixCausality.test_buy_b_does_not_repaint_after_default_warmup)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wind/Desktop/QuantTrading-gu/tests/test_signal_causality.py", line 283, in test_buy_b_does_not_repaint_after_default_warmup
+    self.fail(f'BUY_B prefix={n}, historical index={bad[0] + 149}')
+AssertionError: BUY_B prefix=154, historical index=153
+
+======================================================================
+FAIL: test_composite_divergences_do_not_repaint (test_signal_causality.TestPrefixCausality.test_composite_divergences_do_not_repaint)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wind/Desktop/QuantTrading-gu/tests/test_signal_causality.py", line 276, in test_composite_divergences_do_not_repaint
+    self.assert_prefix_columns(['BOTTOM_DIV', 'TOP_DIV'])
+  File "/Users/wind/Desktop/QuantTrading-gu/tests/test_signal_causality.py", line 250, in assert_prefix_columns
+    self.fail(f'{col}: prefix={n}, bar_index={i}, time={e.time.iloc[i]}, '
+AssertionError: BOTTOM_DIV: prefix=44, bar_index=43, time=2026-01-05 00:43:00+00:00, then=True, full=False
+
+======================================================================
+FAIL: test_inner_divergences_do_not_repaint (test_signal_causality.TestPrefixCausality.test_inner_divergences_do_not_repaint)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wind/Desktop/QuantTrading-gu/tests/test_signal_causality.py", line 273, in test_inner_divergences_do_not_repaint
+    self.assert_prefix_columns(['INNER_BOTTOM_DIV', 'INNER_TOP_DIV'])
+  File "/Users/wind/Desktop/QuantTrading-gu/tests/test_signal_causality.py", line 250, in assert_prefix_columns
+    self.fail(f'{col}: prefix={n}, bar_index={i}, time={e.time.iloc[i]}, '
+AssertionError: INNER_BOTTOM_DIV: prefix=44, bar_index=43, time=2026-01-05 00:43:00+00:00, then=True, full=False
+
+======================================================================
+FAIL: test_original_roll_first_element_is_not_future_event (test_signal_causality.TestPrefixCausality.test_original_roll_first_element_is_not_future_event)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wind/Desktop/QuantTrading-gu/tests/test_signal_causality.py", line 334, in test_original_roll_first_element_is_not_future_event
+    self.assertFalse(bool(lag[0]), 'np.roll sends the final cross into the first row')
+AssertionError: True is not false : np.roll sends the final cross into the first row
+
+======================================================================
+FAIL: test_raw_backset_does_not_change_past (test_signal_causality.TestPrefixCausality.test_raw_backset_does_not_change_past)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wind/Desktop/QuantTrading-gu/tests/test_signal_causality.py", line 307, in test_raw_backset_does_not_change_past
+    np.testing.assert_array_equal(old, new[:2], err_msg='Future event backfills past markers')
+  File "/Users/wind/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/numpy/testing/_private/utils.py", line 1054, in assert_array_equal
+    assert_array_compare(operator.__eq__, actual, desired, err_msg=err_msg,
+  File "/Users/wind/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/numpy/testing/_private/utils.py", line 919, in assert_array_compare
+    raise AssertionError(msg)
+AssertionError: 
+Arrays are not equal
+Future event backfills past markers
+Mismatched elements: 2 / 2 (100%)
+ ACTUAL: array([False, False])
+ DESIRED: array([ True,  True])
+
+======================================================================
+FAIL: test_sell_s_does_not_repaint_after_default_warmup (test_signal_causality.TestPrefixCausality.test_sell_s_does_not_repaint_after_default_warmup)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wind/Desktop/QuantTrading-gu/tests/test_signal_causality.py", line 290, in test_sell_s_does_not_repaint_after_default_warmup
+    self.fail(f'SELL_S prefix={n}, historical index={bad[0] + 149}')
+AssertionError: SELL_S prefix=184, historical index=183
+
+======================================================================
+FAIL: test_legacy_scan_and_message_methods_in_isolation (test_signal_policy.TestLegacyPolicyIntegration.test_legacy_scan_and_message_methods_in_isolation)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wind/Desktop/QuantTrading-gu/tests/test_signal_policy.py", line 365, in test_legacy_scan_and_message_methods_in_isolation
+    self.assertEqual(len(alerts), 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_falling_run_has_no_confirmed_interior_trough (test_signal_reachability.TestZigSemantics.test_falling_run_has_no_confirmed_interior_trough)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wind/Desktop/QuantTrading-gu/tests/test_signal_reachability.py", line 106, in test_falling_run_has_no_confirmed_interior_trough
+    self.assertFalse(troughs[2:4].any(), '100 and 90 remain marked troughs during continued fall')
+AssertionError: np.True_ is not false : 100 and 90 remain marked troughs during continued fall
+
+======================================================================
+FAIL: test_initial_downward_move_is_recognized (test_signal_reachability.TestZigSemantics.test_initial_downward_move_is_recognized)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wind/Desktop/QuantTrading-gu/tests/test_signal_reachability.py", line 98, in test_initial_downward_move_is_recognized
+    self.assertTrue(troughs.any(), '20% initial fall is completely unrecognized')
+AssertionError: np.False_ is not true : 20% initial fall is completely unrecognized
+
+======================================================================
+FAIL: test_rising_run_has_no_confirmed_interior_peak (test_signal_reachability.TestZigSemantics.test_rising_run_has_no_confirmed_interior_peak)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wind/Desktop/QuantTrading-gu/tests/test_signal_reachability.py", line 102, in test_rising_run_has_no_confirmed_interior_peak
+    self.assertFalse(peaks[1], '110 is marked peak before any downward reversal')
+AssertionError: np.True_ is not false : 110 is marked peak before any downward reversal
+
+----------------------------------------------------------------------
+Ran 166 tests in 9.438s
+
+FAILED (failures=10)

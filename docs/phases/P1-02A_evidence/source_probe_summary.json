@@ -1,0 +1,22 @@
+{
+  "date": "2026-10-19",
+  "timezone": "Asia/Shanghai",
+  "kind": "actual_read_only_probe_summary_not_full_response_archive",
+  "first_pages": [
+    {"source": "eastmoney", "requested_at": "2026-10-19T16:12:18.381356+08:00", "finished_at": "2026-10-19T16:12:18.956228+08:00", "http_status": 200, "returned_rows": 100, "provider_declared_total": 5924, "sample_codes": ["920992", "920985"], "independently_verified_full_a_count": null},
+    {"source": "tencent", "requested_at": "2026-10-19T16:12:18.381555+08:00", "finished_at": "2026-10-19T16:12:18.765109+08:00", "http_status": 200, "returned_rows": 200, "provider_declared_total": 5575, "date_and_amount_unit_verified": false},
+    {"source": "sina", "requested_at": "2026-10-19T16:12:18.381652+08:00", "finished_at": "2026-10-19T16:12:18.959007+08:00", "http_status": 200, "returned_rows": 80, "provider_declared_total": null, "sample_codes": ["bj920000", "bj920001"], "full_trade_date_verified": false}
+  ],
+  "larger_requests": [
+    {"source": "eastmoney", "requested_at": "2026-10-19T16:13:52.471325+08:00", "page_size_requested": 10000, "result": "ProxyError / RemoteDisconnected", "accepted_full_snapshot": false},
+    {"source": "tencent", "requested_at": "2026-10-19T16:13:52.471489+08:00", "count_requested": 6000, "result": "response missing data; KeyError data", "accepted_full_snapshot": false}
+  ],
+  "production_adapter": [
+    {"requested_at": "2026-10-19T16:21:59.837920+08:00", "observed_at": "2026-10-19T16:22:00.207056+08:00", "result": "first page ProxyError / RemoteDisconnected", "availability": "unavailable", "stats": null},
+    {"requested_at": "2026-10-19T16:34:31.204492+08:00", "result": "actual 8091 page first page ProxyError / RemoteDisconnected", "availability": "unavailable", "stats": null}
+  ],
+  "accepted_complete_snapshots": 0,
+  "formal_valid_sample_count": null,
+  "coverage_pct": null,
+  "synthetic_rows_used_in_production": false
+}

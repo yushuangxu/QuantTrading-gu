@@ -90,8 +90,7 @@ def handle_sig(signum, frame):
     log.info("收到退出信号，准备停止...")
     STOP_EVENT.set()
 
-signal.signal(signal.SIGINT, handle_sig)
-signal.signal(signal.SIGTERM, handle_sig)
+# Signal ownership belongs to the process entrypoint, never module import.
 
 
 def code_to_market(code: str) -> int:
@@ -525,7 +524,7 @@ class SealMonitor:
             # 动态检查股票池变更
             self._maybe_reload_symbols()
             if not in_trading():
-                time.sleep(30)
+                self._stop_event.wait(30)
                 continue
             try:
                 quotes = self.data_fetcher.get_all_realtime_quotes()
@@ -539,17 +538,21 @@ class SealMonitor:
                         log.warning("处理 %s 出错: %s", code, e)
             except Exception as e:
                 log.warning("行情获取失败: %s", e)
-            time.sleep(self.poll_interval)
+            self._stop_event.wait(self.poll_interval)
         log.info("封单监控线程已停止")
 
     def start(self):
         self._thread = Thread(target=self._run, daemon=True, name="seal-monitor")
         self._thread.start()
 
-    def stop(self):
+    def stop(self, timeout=10):
         self._stop_event.set()
         if self._thread:
-            self._thread.join(timeout=10)
+            self._thread.join(timeout=timeout)
+            if self._thread.is_alive():
+                log.error('封单监控线程退出超时')
+                return False
+        return True
 
 
 # ---------- 独立运行入口 ----------
@@ -625,4 +628,6 @@ def main():
 
 
 if __name__ == "__main__":
+    signal.signal(signal.SIGINT, handle_sig)
+    signal.signal(signal.SIGTERM, handle_sig)
     main()

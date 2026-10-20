@@ -1,0 +1,105 @@
+Python 3.11.15 | numpy 2.4.6 | pandas 3.0.5 | Flask 3.1.3
+Suite=known: 9 tests; regression=205, known=9
+Ordinary failing assertions are expected while defects remain; exit 1 is NOT masked.
+test_buy_b_does_not_repaint_after_default_warmup (test_signal_causality.TestPrefixCausality.test_buy_b_does_not_repaint_after_default_warmup) ... FAIL
+test_composite_divergences_do_not_repaint (test_signal_causality.TestPrefixCausality.test_composite_divergences_do_not_repaint) ... FAIL
+test_inner_divergences_do_not_repaint (test_signal_causality.TestPrefixCausality.test_inner_divergences_do_not_repaint) ... FAIL
+test_original_roll_first_element_is_not_future_event (test_signal_causality.TestPrefixCausality.test_original_roll_first_element_is_not_future_event) ... FAIL
+test_raw_backset_does_not_change_past (test_signal_causality.TestPrefixCausality.test_raw_backset_does_not_change_past) ... FAIL
+test_sell_s_does_not_repaint_after_default_warmup (test_signal_causality.TestPrefixCausality.test_sell_s_does_not_repaint_after_default_warmup) ... FAIL
+test_falling_run_has_no_confirmed_interior_trough (test_signal_causality.TestZigSemantics.test_falling_run_has_no_confirmed_interior_trough) ... FAIL
+test_initial_downward_move_is_recognized (test_signal_causality.TestZigSemantics.test_initial_downward_move_is_recognized) ... FAIL
+test_rising_run_has_no_confirmed_interior_peak (test_signal_causality.TestZigSemantics.test_rising_run_has_no_confirmed_interior_peak) ... FAIL
+
+======================================================================
+FAIL: test_buy_b_does_not_repaint_after_default_warmup (test_signal_causality.TestPrefixCausality.test_buy_b_does_not_repaint_after_default_warmup)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wind/Desktop/QuantTrading-gu/tests/test_signal_causality.py", line 284, in test_buy_b_does_not_repaint_after_default_warmup
+    self.fail(f'BUY_B prefix={n}, historical index={bad[0] + 149}')
+AssertionError: BUY_B prefix=154, historical index=153
+
+======================================================================
+FAIL: test_composite_divergences_do_not_repaint (test_signal_causality.TestPrefixCausality.test_composite_divergences_do_not_repaint)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wind/Desktop/QuantTrading-gu/tests/test_signal_causality.py", line 277, in test_composite_divergences_do_not_repaint
+    self.assert_prefix_columns(['BOTTOM_DIV', 'TOP_DIV'])
+  File "/Users/wind/Desktop/QuantTrading-gu/tests/test_signal_causality.py", line 251, in assert_prefix_columns
+    self.fail(f'{col}: prefix={n}, bar_index={i}, time={e.time.iloc[i]}, '
+AssertionError: BOTTOM_DIV: prefix=44, bar_index=43, time=2026-01-05 00:43:00+00:00, then=True, full=False
+
+======================================================================
+FAIL: test_inner_divergences_do_not_repaint (test_signal_causality.TestPrefixCausality.test_inner_divergences_do_not_repaint)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wind/Desktop/QuantTrading-gu/tests/test_signal_causality.py", line 274, in test_inner_divergences_do_not_repaint
+    self.assert_prefix_columns(['INNER_BOTTOM_DIV', 'INNER_TOP_DIV'])
+  File "/Users/wind/Desktop/QuantTrading-gu/tests/test_signal_causality.py", line 251, in assert_prefix_columns
+    self.fail(f'{col}: prefix={n}, bar_index={i}, time={e.time.iloc[i]}, '
+AssertionError: INNER_BOTTOM_DIV: prefix=44, bar_index=43, time=2026-01-05 00:43:00+00:00, then=True, full=False
+
+======================================================================
+FAIL: test_original_roll_first_element_is_not_future_event (test_signal_causality.TestPrefixCausality.test_original_roll_first_element_is_not_future_event)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wind/Desktop/QuantTrading-gu/tests/test_signal_causality.py", line 335, in test_original_roll_first_element_is_not_future_event
+    self.assertFalse(bool(lag[0]), 'np.roll sends the final cross into the first row')
+AssertionError: True is not false : np.roll sends the final cross into the first row
+
+======================================================================
+FAIL: test_raw_backset_does_not_change_past (test_signal_causality.TestPrefixCausality.test_raw_backset_does_not_change_past)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wind/Desktop/QuantTrading-gu/tests/test_signal_causality.py", line 308, in test_raw_backset_does_not_change_past
+    np.testing.assert_array_equal(old, new[:2], err_msg='Future event backfills past markers')
+  File "/opt/miniconda3/envs/quant/lib/python3.11/site-packages/numpy/testing/_private/utils.py", line 1121, in assert_array_equal
+    assert_array_compare(operator.__eq__, actual, desired, err_msg=err_msg,
+  File "/opt/miniconda3/envs/quant/lib/python3.11/site-packages/numpy/testing/_private/utils.py", line 983, in assert_array_compare
+    raise AssertionError(msg)
+AssertionError: 
+Arrays are not equal
+Future event backfills past markers
+Mismatched elements: 2 / 2 (100%)
+Mismatch at indices:
+ [0]: False (ACTUAL), True (DESIRED)
+ [1]: False (ACTUAL), True (DESIRED)
+ ACTUAL: array([False, False])
+ DESIRED: array([ True,  True])
+
+======================================================================
+FAIL: test_sell_s_does_not_repaint_after_default_warmup (test_signal_causality.TestPrefixCausality.test_sell_s_does_not_repaint_after_default_warmup)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wind/Desktop/QuantTrading-gu/tests/test_signal_causality.py", line 291, in test_sell_s_does_not_repaint_after_default_warmup
+    self.fail(f'SELL_S prefix={n}, historical index={bad[0] + 149}')
+AssertionError: SELL_S prefix=184, historical index=183
+
+======================================================================
+FAIL: test_falling_run_has_no_confirmed_interior_trough (test_signal_causality.TestZigSemantics.test_falling_run_has_no_confirmed_interior_trough)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wind/Desktop/QuantTrading-gu/tests/test_signal_causality.py", line 436, in test_falling_run_has_no_confirmed_interior_trough
+    self.assertFalse(troughs[2:4].any(), '100 and 90 remain marked troughs during continued fall')
+AssertionError: np.True_ is not false : 100 and 90 remain marked troughs during continued fall
+
+======================================================================
+FAIL: test_initial_downward_move_is_recognized (test_signal_causality.TestZigSemantics.test_initial_downward_move_is_recognized)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wind/Desktop/QuantTrading-gu/tests/test_signal_causality.py", line 428, in test_initial_downward_move_is_recognized
+    self.assertTrue(troughs.any(), '20% initial fall is completely unrecognized')
+AssertionError: np.False_ is not true : 20% initial fall is completely unrecognized
+
+======================================================================
+FAIL: test_rising_run_has_no_confirmed_interior_peak (test_signal_causality.TestZigSemantics.test_rising_run_has_no_confirmed_interior_peak)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wind/Desktop/QuantTrading-gu/tests/test_signal_causality.py", line 432, in test_rising_run_has_no_confirmed_interior_peak
+    self.assertFalse(peaks[1], '110 is marked peak before any downward reversal')
+AssertionError: np.True_ is not false : 110 is marked peak before any downward reversal
+
+----------------------------------------------------------------------
+Ran 9 tests in 2.919s
+
+FAILED (failures=9)

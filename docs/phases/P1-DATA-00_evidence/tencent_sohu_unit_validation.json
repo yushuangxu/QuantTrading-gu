@@ -1,0 +1,1 @@
+{"paired_sessions": 120, "max_ohlc_abs_difference": 0.010000000000218279, "max_volume_relative_difference": 7.63611104138339e-08, "max_amount_relative_difference": 8.787287455592275e-08, "amount_conversion": "Tencent day[8] * 10000 versus Sohu named table amount (CNY_10K) * 10000", "volume_conversion": "Tencent day[5] versus Sohu named table volume (lots)"}

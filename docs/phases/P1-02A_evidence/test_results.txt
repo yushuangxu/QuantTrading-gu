@@ -1,0 +1,26 @@
+P1-02A offline verification — 2026-10-19
+Python /opt/miniconda3/envs/quant/bin/python
+Python 3.11.15 | numpy 2.4.6 | pandas 3.0.5 | Flask 3.1.3
+
+python -B run_tests.py regression
+Ran 288 tests in 12.211s
+OK; exit_code=0; no skips
+
+python -B run_tests.py known
+Ran 9 tests in 3.239s
+FAILED (failures=9); exit_code=1; original known defects preserved
+test_buy_b_does_not_repaint_after_default_warmup
+test_composite_divergences_do_not_repaint
+test_inner_divergences_do_not_repaint
+test_original_roll_first_element_is_not_future_event
+test_raw_backset_does_not_change_past
+test_sell_s_does_not_repaint_after_default_warmup
+test_falling_run_has_no_confirmed_interior_trough
+test_initial_downward_move_is_recognized
+test_rising_run_has_no_confirmed_interior_peak
+
+New test_market_breadth: 44 offline tests passed separately and in regression.
+node tests/dashboard_view.test.cjs: 20 assertions passed (offline).
+node --check webapp/static/breadth.js: passed.
+git diff --check: passed.
+No real market server or notification endpoint used by offline tests.

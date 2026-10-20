@@ -38,6 +38,13 @@ body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;backgroun
 .add-row button{background:#238636;color:#fff;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap}
 .add-row button:hover{background:#2ea043}
 .content{flex:1;overflow-y:auto;padding:12px 16px}
+.market-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:10px 0 16px}
+.market-card{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:12px;min-width:0}
+.market-card h3{font-size:14px;color:#58a6ff;margin-bottom:6px}
+.market-meta{font-size:11px;color:#8b949e;line-height:1.7;overflow-wrap:anywhere}
+.market-warning{font-size:11px;color:#e3b341;line-height:1.6;white-space:pre-line}
+.market-chart{height:185px;margin-top:8px}
+@media(max-width:1050px){.market-grid{grid-template-columns:1fr}}
 .chart-section{margin-bottom:12px}
 .chart-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
 .chart-box{background:#161b22;border:1px solid #30363d;border-radius:6px;overflow:hidden}
@@ -92,7 +99,14 @@ body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;backgroun
 </aside>
 
 <section class="content" id="mainContent">
+<section id="marketBarometer" aria-label="大盘晴雨表">
+<h2 style="font-size:16px;color:#c9d1d9">大盘晴雨表 <small style="font-size:11px;color:#8b949e">指数日线 · 客观趋势，不产生买卖信号</small></h2>
+<p class="market-meta">正式趋势仅使用已完成日线；当日临时数据单列。无最终完成标志的末根等待后续交易日佐证，休市时也不强行确认。</p>
+<div id="marketIndices" class="market-grid">正在加载四个主要指数...</div>
+</section>
+<div id="stockContent">
 <div class="empty-state"><div class="icon">📊</div>点击左侧股票查看 K 线和技术指标</div>
+</div>
 </section>
 </div>
 
@@ -102,6 +116,84 @@ const RED = '#da3633', GREEN = '#3fb950', BLUE = '#58a6ff';
 let activeTab = 'pool', selectedCode = '', poolsData = {pool1:[],pool2:[]};
 let klineChart, macdChart, kdjChart;
 let refreshTimer = 5;
+const indexCharts = new Map();
+let marketLoading = false;
+
+// Separate 60s display refresh; server applies its own 5min/6h cache policy.
+function safeText(value) {
+    const span = document.createElement('span');
+    span.textContent = value == null ? '--' : String(value);
+    return span.innerHTML;
+}
+function numberText(value, digits=2) {
+    return Number.isFinite(value) ? value.toFixed(digits) : '--';
+}
+async function loadMarket() {
+    if (marketLoading) return;
+    marketLoading = true;
+    try {
+        const list = await api(BASE + '/api/market/indices');
+        if (!list?.indices?.length) {
+            document.getElementById('marketIndices').textContent = '大盘指数接口不可用，请稍后重试';
+            return;
+        }
+        // Parallel calls: failure of one source response doesn't delay all cards.
+        await Promise.all(list.indices.map(async (spec) => {
+            const id = 'index-' + spec.code.replace('.', '-');
+            let card = document.getElementById(id);
+            if (!card) {
+                const target = document.getElementById('marketIndices');
+                if (!target.querySelector('.market-card')) target.textContent = '';
+                card = document.createElement('article'); card.className = 'market-card'; card.id = id;
+                target.appendChild(card);
+                card.textContent = spec.name + '：加载中...';
+            }
+            const d = await api(BASE + '/api/market/index/' + encodeURIComponent(spec.code));
+            const previous = indexCharts.get(spec.code);
+            if (previous) { previous.dispose(); indexCharts.delete(spec.code); }
+            if (!d) {
+                card.textContent = spec.name + '：接口不可用，无有效日线';
+                return;
+            }
+            const states = {closed:'已完成', forming:'临时·未完成', unknown:'完成状态未知'};
+            const quality = {fresh:'获取有效', stale:'过期/降级', unknown:'新鲜度未知', unavailable:'不可用'};
+            const direction = {up:'向上',down:'向下',flat:'持平',unknown:'未知'};
+            const latest = d.latest;
+            const color = d.change_pct > 0 ? RED : d.change_pct < 0 ? GREEN : '#c9d1d9';
+            card.innerHTML = `<h3>${safeText(d.name)} <small>${safeText(d.code)}</small> · ${safeText(d.trend)}</h3>
+                <div style="color:${color}">正式收盘 ${numberText(d.close)}　涨跌 ${numberText(d.change_pct)}%</div>
+                <div class="market-meta">正式分析日期 ${safeText(d.analysis_date)} · ${safeText(states[d.analysis_bar_state] || '无已完成数据')}<br>
+                成交额 ${numberText(d.amount == null ? null : d.amount/1e8)} 亿元（正式分析日）<br>
+                MA5 ${numberText(d.ma?.ma5)} / MA10 ${numberText(d.ma?.ma10)} / MA20 ${numberText(d.ma?.ma20)} / MA60 ${numberText(d.ma?.ma60)}<br>
+                MA20 ${safeText(direction[d.directions?.ma20?.direction] || '未知')} · MA60 ${safeText(direction[d.directions?.ma60?.direction] || '未知')}（较${safeText(d.slope_bars)}根前）<br>
+                最新观察 ${safeText(latest?.date)}：${numberText(latest?.close)}（${numberText(d.latest_change_pct)}%）· ${safeText(states[latest?.state] || '无数据')}<br>
+                最新观察成交额 ${numberText(latest?.amount == null ? null : latest.amount/1e8)} 亿元<br>
+                ${safeText(quality[d.availability])} · 已完成 ${safeText(d.closed_count)} / 要求 ${safeText(d.required_history)} 根<br>
+                来源 ${safeText(d.source_label || d.source || '指数日线')}<br>
+                获取于 ${safeText(d.fetched_at)}<br>展示更新 ${safeText(d.observed_at)}</div>
+                <div class="market-warning">${safeText([d.error, ...(d.warnings || []), latest?.state_reason].filter(Boolean).join('\n'))}</div>
+                <div class="market-chart"></div>`;
+            if (!window.echarts) {
+                card.querySelector('.market-chart').textContent = '图表库加载失败；以上数值仍可查看';
+                return;
+            }
+            const chart = echarts.init(card.querySelector('.market-chart'));
+            indexCharts.set(spec.code, chart);
+            const rows = d.chart || [];
+            chart.setOption({
+                tooltip:{trigger:'axis'}, legend:{data:['收盘','MA5','MA10','MA20','MA60'],textStyle:{color:'#8b949e',fontSize:9}},
+                grid:{left:55,right:10,top:30,bottom:25},
+                xAxis:{type:'category',data:rows.map(r=>r.date),axisLabel:{color:'#8b949e',fontSize:9}},
+                yAxis:{type:'value',scale:true,axisLabel:{color:'#8b949e',fontSize:9},splitLine:{lineStyle:{color:'#21262d'}}},
+                series:[['收盘','close'],['MA5','ma5'],['MA10','ma10'],['MA20','ma20'],['MA60','ma60']].map(([name,key])=>({
+                    name,type:'line',symbol:'none',connectNulls:false,data:rows.map(r=>r[key]),lineStyle:{width:key==='close'?2:1}
+                }))
+            });
+        }));
+    } finally { marketLoading = false; }
+}
+window.addEventListener('resize', () => indexCharts.forEach(chart => chart.resize()));
+setInterval(loadMarket, 60000);
 
 function toast(msg, type='info') {
     const t = document.createElement('div');
@@ -240,8 +332,8 @@ async function loadLogsSidebar() {
 async function selectStock(code) {
     selectedCode = code;
     renderSidebar();
-    if (!code) { document.getElementById('mainContent').innerHTML = '<div class="empty-state"><div class="icon">📊</div>点击左侧股票查看 K 线和技术指标</div>'; return; }
-    document.getElementById('mainContent').innerHTML = `
+    if (!code) { document.getElementById('stockContent').innerHTML = '<div class="empty-state"><div class="icon">📊</div>点击左侧股票查看 K 线和技术指标</div>'; return; }
+    document.getElementById('stockContent').innerHTML = `
         <div class="indicator-panel" id="indPanel">加载中...</div>
         <div class="chart-box" style="margin-bottom:10px">
             <div class="chart-title" id="klineTitle">${code} 分钟 K线</div>
@@ -257,7 +349,7 @@ async function selectStock(code) {
 async function loadStockChart(code) {
     const d = await api(BASE + '/api/stock/' + code.replace('.','%2E') + '/bars');
     if (!d?.bars?.length) {
-        document.getElementById('mainContent').innerHTML = '<div class="empty-state"><div class="icon">📭</div>' + code + ' 暂无今日数据</div>';
+        document.getElementById('stockContent').innerHTML = '<div class="empty-state"><div class="icon">📭</div>' + code + ' 暂无今日数据</div>';
         return;
     }
     renderIndicators(d.indicators, d.bars[d.bars.length-1]);
@@ -393,6 +485,7 @@ document.addEventListener('keydown', e => {
 
 // init
 refresh();
+loadMarket();
 </script>
 </body>
 </html>

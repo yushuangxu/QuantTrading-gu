@@ -1,0 +1,121 @@
+test_all_original_outputs_saved_and_input_not_mutated (test_signal_causality.TestPrefixCausality.test_all_original_outputs_saved_and_input_not_mutated) ... ok
+test_area_and_line_divergences_causal (test_signal_causality.TestPrefixCausality.test_area_and_line_divergences_causal) ... ok
+test_buy_b_does_not_repaint_after_default_warmup (test_signal_causality.TestPrefixCausality.test_buy_b_does_not_repaint_after_default_warmup) ... FAIL
+test_cci_causal (test_signal_causality.TestPrefixCausality.test_cci_causal) ... ok
+test_composite_divergences_do_not_repaint (test_signal_causality.TestPrefixCausality.test_composite_divergences_do_not_repaint) ... FAIL
+test_crosses_causal_and_nonvacuous (test_signal_causality.TestPrefixCausality.test_crosses_causal_and_nonvacuous) ... ok
+test_inner_divergences_do_not_repaint (test_signal_causality.TestPrefixCausality.test_inner_divergences_do_not_repaint) ... FAIL
+test_intrabar_revision_changes_current_not_completed_indicators (test_signal_causality.TestPrefixCausality.test_intrabar_revision_changes_current_not_completed_indicators) ... ok
+test_jb_js_and_wave_outputs_are_prefix_causal (test_signal_causality.TestPrefixCausality.test_jb_js_and_wave_outputs_are_prefix_causal) ... ok
+test_kdj_causal (test_signal_causality.TestPrefixCausality.test_kdj_causal) ... ok
+test_macd_causal (test_signal_causality.TestPrefixCausality.test_macd_causal) ... ok
+test_original_roll_first_element_is_not_future_event (test_signal_causality.TestPrefixCausality.test_original_roll_first_element_is_not_future_event) ... FAIL
+test_raw_backset_does_not_change_past (test_signal_causality.TestPrefixCausality.test_raw_backset_does_not_change_past) ... FAIL
+test_retrospective_annotation_is_not_same_as_realtime (test_signal_causality.TestPrefixCausality.test_retrospective_annotation_is_not_same_as_realtime) ... ok
+test_sell_s_does_not_repaint_after_default_warmup (test_signal_causality.TestPrefixCausality.test_sell_s_does_not_repaint_after_default_warmup) ... FAIL
+test_wrap_fix_reference_effect_is_measured_not_assumed (test_signal_causality.TestPrefixCausality.test_wrap_fix_reference_effect_is_measured_not_assumed) ... ok
+test_cci_independent_window_reference (test_signal_reachability.TestIndicatorReference.test_cci_independent_window_reference) ... ok
+test_cross_equal_boundary_and_first_row (test_signal_reachability.TestIndicatorReference.test_cross_equal_boundary_and_first_row) ... ok
+test_kdj_independent_first_valid_rsv_reference (test_signal_reachability.TestIndicatorReference.test_kdj_independent_first_valid_rsv_reference) ... ok
+test_macd_independent_recursive_reference (test_signal_reachability.TestIndicatorReference.test_macd_independent_recursive_reference) ... ok
+test_actual_cross_and_all_divergence_components_exercised (test_signal_reachability.TestReachability.test_actual_cross_and_all_divergence_components_exercised) ... ok
+test_bottom_contradiction_exhaustive_sign_states (test_signal_reachability.TestReachability.test_bottom_contradiction_exhaustive_sign_states) ... ok
+test_original_six_signal_equations_match_outputs (test_signal_reachability.TestReachability.test_original_six_signal_equations_match_outputs) ... ok
+test_strong_components_are_already_disjoint_on_every_prefix (test_signal_reachability.TestReachability.test_strong_components_are_already_disjoint_on_every_prefix) ... ok
+test_top_contradiction_exhaustive_sign_states (test_signal_reachability.TestReachability.test_top_contradiction_exhaustive_sign_states) ... ok
+test_falling_run_has_no_confirmed_interior_trough (test_signal_reachability.TestZigSemantics.test_falling_run_has_no_confirmed_interior_trough) ... FAIL
+test_initial_downward_move_is_recognized (test_signal_reachability.TestZigSemantics.test_initial_downward_move_is_recognized) ... FAIL
+test_jb_js_can_mark_continuing_macd_run_without_turn (test_signal_reachability.TestZigSemantics.test_jb_js_can_mark_continuing_macd_run_without_turn) ... ok
+test_rising_run_has_no_confirmed_interior_peak (test_signal_reachability.TestZigSemantics.test_rising_run_has_no_confirmed_interior_peak) ... FAIL
+test_zero_crossing_sensitivity_and_direction_asymmetry_measured (test_signal_reachability.TestZigSemantics.test_zero_crossing_sensitivity_and_direction_asymmetry_measured) ... ok
+test_zig_is_append_only_not_a_future_function (test_signal_reachability.TestZigSemantics.test_zig_is_append_only_not_a_future_function) ... ok
+
+======================================================================
+FAIL: test_buy_b_does_not_repaint_after_default_warmup (test_signal_causality.TestPrefixCausality.test_buy_b_does_not_repaint_after_default_warmup)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wind/Desktop/QuantTrading-gu/tests/test_signal_causality.py", line 283, in test_buy_b_does_not_repaint_after_default_warmup
+    self.fail(f'BUY_B prefix={n}, historical index={bad[0] + 149}')
+AssertionError: BUY_B prefix=154, historical index=153
+
+======================================================================
+FAIL: test_composite_divergences_do_not_repaint (test_signal_causality.TestPrefixCausality.test_composite_divergences_do_not_repaint)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wind/Desktop/QuantTrading-gu/tests/test_signal_causality.py", line 276, in test_composite_divergences_do_not_repaint
+    self.assert_prefix_columns(['BOTTOM_DIV', 'TOP_DIV'])
+  File "/Users/wind/Desktop/QuantTrading-gu/tests/test_signal_causality.py", line 250, in assert_prefix_columns
+    self.fail(f'{col}: prefix={n}, bar_index={i}, time={e.time.iloc[i]}, '
+AssertionError: BOTTOM_DIV: prefix=44, bar_index=43, time=2026-01-05 00:43:00+00:00, then=True, full=False
+
+======================================================================
+FAIL: test_inner_divergences_do_not_repaint (test_signal_causality.TestPrefixCausality.test_inner_divergences_do_not_repaint)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wind/Desktop/QuantTrading-gu/tests/test_signal_causality.py", line 273, in test_inner_divergences_do_not_repaint
+    self.assert_prefix_columns(['INNER_BOTTOM_DIV', 'INNER_TOP_DIV'])
+  File "/Users/wind/Desktop/QuantTrading-gu/tests/test_signal_causality.py", line 250, in assert_prefix_columns
+    self.fail(f'{col}: prefix={n}, bar_index={i}, time={e.time.iloc[i]}, '
+AssertionError: INNER_BOTTOM_DIV: prefix=44, bar_index=43, time=2026-01-05 00:43:00+00:00, then=True, full=False
+
+======================================================================
+FAIL: test_original_roll_first_element_is_not_future_event (test_signal_causality.TestPrefixCausality.test_original_roll_first_element_is_not_future_event)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wind/Desktop/QuantTrading-gu/tests/test_signal_causality.py", line 334, in test_original_roll_first_element_is_not_future_event
+    self.assertFalse(bool(lag[0]), 'np.roll sends the final cross into the first row')
+AssertionError: True is not false : np.roll sends the final cross into the first row
+
+======================================================================
+FAIL: test_raw_backset_does_not_change_past (test_signal_causality.TestPrefixCausality.test_raw_backset_does_not_change_past)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wind/Desktop/QuantTrading-gu/tests/test_signal_causality.py", line 307, in test_raw_backset_does_not_change_past
+    np.testing.assert_array_equal(old, new[:2], err_msg='Future event backfills past markers')
+  File "/Users/wind/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/numpy/testing/_private/utils.py", line 1054, in assert_array_equal
+    assert_array_compare(operator.__eq__, actual, desired, err_msg=err_msg,
+  File "/Users/wind/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/numpy/testing/_private/utils.py", line 919, in assert_array_compare
+    raise AssertionError(msg)
+AssertionError: 
+Arrays are not equal
+Future event backfills past markers
+Mismatched elements: 2 / 2 (100%)
+ ACTUAL: array([False, False])
+ DESIRED: array([ True,  True])
+
+======================================================================
+FAIL: test_sell_s_does_not_repaint_after_default_warmup (test_signal_causality.TestPrefixCausality.test_sell_s_does_not_repaint_after_default_warmup)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wind/Desktop/QuantTrading-gu/tests/test_signal_causality.py", line 290, in test_sell_s_does_not_repaint_after_default_warmup
+    self.fail(f'SELL_S prefix={n}, historical index={bad[0] + 149}')
+AssertionError: SELL_S prefix=184, historical index=183
+
+======================================================================
+FAIL: test_falling_run_has_no_confirmed_interior_trough (test_signal_reachability.TestZigSemantics.test_falling_run_has_no_confirmed_interior_trough)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wind/Desktop/QuantTrading-gu/tests/test_signal_reachability.py", line 106, in test_falling_run_has_no_confirmed_interior_trough
+    self.assertFalse(troughs[2:4].any(), '100 and 90 remain marked troughs during continued fall')
+AssertionError: np.True_ is not false : 100 and 90 remain marked troughs during continued fall
+
+======================================================================
+FAIL: test_initial_downward_move_is_recognized (test_signal_reachability.TestZigSemantics.test_initial_downward_move_is_recognized)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wind/Desktop/QuantTrading-gu/tests/test_signal_reachability.py", line 98, in test_initial_downward_move_is_recognized
+    self.assertTrue(troughs.any(), '20% initial fall is completely unrecognized')
+AssertionError: np.False_ is not true : 20% initial fall is completely unrecognized
+
+======================================================================
+FAIL: test_rising_run_has_no_confirmed_interior_peak (test_signal_reachability.TestZigSemantics.test_rising_run_has_no_confirmed_interior_peak)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wind/Desktop/QuantTrading-gu/tests/test_signal_reachability.py", line 102, in test_rising_run_has_no_confirmed_interior_peak
+    self.assertFalse(peaks[1], '110 is marked peak before any downward reversal')
+AssertionError: np.True_ is not false : 110 is marked peak before any downward reversal
+
+----------------------------------------------------------------------
+Ran 31 tests in 5.578s
+
+FAILED (failures=9)

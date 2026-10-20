@@ -135,3 +135,14 @@ python main.py
 - 项目结构：`main.py`（主程序）+ `strategy.py`（策略）+ `email_push.py`（邮件推送）+ `tg_push.py`（Telegram 推送）+ `wecom_push.py`（企业微信推送）。
 - 当前行情源为 Tushare `rt_min`，且包含 `http://tushare.xyz` 兼容设置。
 - 现在程序支持通过 `.env` 按序号扩展任意多个票池，无需再修改代码。
+
+## 离线测试入口
+
+测试与历史工具已整理，当前命令及安全边界见 [tests/README.md](tests/README.md)，删除/保留清单见 [测试精简整理报告](docs/测试精简整理报告.md)。
+
+```bash
+/opt/miniconda3/envs/quant/bin/python -B run_tests.py regression
+/opt/miniconda3/envs/quant/bin/python -B run_tests.py known
+```
+
+第一条验证日常回归；第二条明确复现9项未修算法缺陷，当前预期退出1，不代表测试通过。不要执行根目录无范围的测试发现，以免导入手动联网/历史诊断工具。

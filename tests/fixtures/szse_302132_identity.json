@@ -1,0 +1,14 @@
+{
+  "source": "Shenzhen Stock Exchange A-share list",
+  "source_url": "https://www.szse.cn/api/report/ShowReport?SHOWTYPE=xlsx&CATALOGID=1110&TABKEY=tab1",
+  "captured_at": "2026-10-19T16:50:40.661464+08:00",
+  "archive": "docs/phases/P1-02A-1_evidence/szse_a.json",
+  "archive_sha256": "e99cdf6c506d86a6ed59851e8a29276b92a6983683e15a15d39ecfc2ed0b0be6",
+  "row": {
+    "板块": "创业板",
+    "A股代码": "302132",
+    "A股简称": "中航成飞",
+    "A股上市日期": "2010-08-27"
+  },
+  "scope": "Exact code/exchange evidence only. Not a complete universe, not a quote fixture."
+}

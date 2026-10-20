@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import sys
 import time
+import signal
+from threading import Event
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -23,6 +26,7 @@ from market_hours import AshareSessionGuard
 from seal_monitor import SealMonitor
 from shared_data_fetcher import SharedDataFetcher
 from strategy import KdjMacdStrategy, SignalResult
+from signal_policy import SignalJournal, format_signal_notice, record_latest_signal
 from tg_push import TelegramPusher
 from wecom_push import WeComPusher
 
@@ -281,9 +285,12 @@ def _build_config() -> AppConfig:
 
 
 class QuantAlertApp:
-    def __init__(self, config: AppConfig) -> None:
+    def __init__(self, config: AppConfig, stop_event=None) -> None:
+        self._stop_requested = stop_event if stop_event is not None else Event()
         self.config = config
         self.strategy = KdjMacdStrategy()
+        self._strategy_revision = hashlib.sha256(Path(__file__).with_name("strategy.py").read_bytes()).hexdigest()
+        self.signal_journal = SignalJournal(Path(__file__).resolve().parent / "runtime" / "signals")
         self.email_pusher: EmailPusher | None = None
         self.telegram_pusher: TelegramPusher | None = None
         self.wecom_pushers: Dict[str, WeComPusher] = {}
@@ -324,61 +331,83 @@ class QuantAlertApp:
             freq=config.min_freq,
             fetch_interval=config.fetch_interval_seconds,
         )
-        self.data_source.connect()
-        self.data_source.start()
-        self._log(f"统一数据获取器已启动，每秒获取 {len(tickers)} 只标的")
+        try:
+            self.data_source.connect()
+            self.data_source.start()
+            self._log(f"统一数据获取器已启动，每秒获取 {len(tickers)} 只标的")
 
-        # 启动封单监控（共用股票池 + webhook）
-        if self.config.seal_monitor_enabled:
-            seal_symbols = []
-            for pool in self.config.pools:
-                pool_tickers = _load_tickers(pool.tickers_file)
-                for t in pool_tickers:
-                    code = t.ts_code.split(".")[0]
-                    if code not in seal_symbols:
-                        seal_symbols.append(code)
-            seal_webhook = self.config.pools[0].wecom_webhook_url if self.config.pools else ""
-            if seal_symbols and seal_webhook:
-                # 获取股票池文件路径（用于动态重载）
-                seal_tickers_file = os.path.join(
-                    os.path.dirname(os.path.abspath(__file__)),
-                    self.config.pools[0].tickers_file
-                )
-                self.seal_monitor = SealMonitor(
-                    symbols=seal_symbols,
-                    webhook=seal_webhook,
-                    data_fetcher=self.data_source,
-                    poll_interval=self.config.seal_poll_interval,
-                    seal_drop_pct_per_sec=self.config.seal_drop_pct_per_sec,
-                    seal_min_drop_amount=self.config.seal_min_drop_amount,
-                    near_limit_pct=self.config.seal_near_limit_pct,
-                    buy_amount_per_sec=self.config.seal_buy_amount_per_sec,
-                    tickers_file=seal_tickers_file,
-                )
-                self.seal_monitor.start()
-                self._log(f"封单监控已启动，共用股票池 {len(seal_symbols)} 只，webhook={seal_webhook[:40]}...")
-            else:
-                self._log("封单监控未启动：股票池或 webhook 为空")
+            # 启动封单监控（共用股票池 + webhook）
+            if self.config.seal_monitor_enabled:
+                seal_symbols = []
+                for pool in self.config.pools:
+                    pool_tickers = _load_tickers(pool.tickers_file)
+                    for t in pool_tickers:
+                        code = t.ts_code.split(".")[0]
+                        if code not in seal_symbols:
+                            seal_symbols.append(code)
+                seal_webhook = self.config.pools[0].wecom_webhook_url if self.config.pools else ""
+                if seal_symbols and seal_webhook:
+                    # 获取股票池文件路径（用于动态重载）
+                    seal_tickers_file = os.path.join(
+                        os.path.dirname(os.path.abspath(__file__)),
+                        self.config.pools[0].tickers_file
+                    )
+                    self.seal_monitor = SealMonitor(
+                        symbols=seal_symbols,
+                        webhook=seal_webhook,
+                        data_fetcher=self.data_source,
+                        poll_interval=self.config.seal_poll_interval,
+                        seal_drop_pct_per_sec=self.config.seal_drop_pct_per_sec,
+                        seal_min_drop_amount=self.config.seal_min_drop_amount,
+                        near_limit_pct=self.config.seal_near_limit_pct,
+                        buy_amount_per_sec=self.config.seal_buy_amount_per_sec,
+                        tickers_file=seal_tickers_file,
+                    )
+                    self.seal_monitor.start()
+                    self._log(f"封单监控已启动，共用股票池 {len(seal_symbols)} 只，webhook={seal_webhook[:40]}...")
+                else:
+                    self._log("封单监控未启动：股票池或 webhook 为空")
 
-        self.session_guard: AshareSessionGuard | None = None
-        if config.enable_trading_hours:
-            self.session_guard = AshareSessionGuard()
-        self._sent_cache: Set[Tuple[str, str, str, str]] = set()
-        self._last_sent_at: Dict[Tuple[str, str, str], datetime] = {}
-        self._last_seen_bar_time: Dict[str, str] = {}
-        self._ticker_display: Dict[Tuple[str, str], str] = {}
+            self.session_guard: AshareSessionGuard | None = None
+            if config.enable_trading_hours:
+                self.session_guard = AshareSessionGuard()
+            self._sent_cache: Set[Tuple[str, str, str, str, str]] = set()
+            self._last_sent_at: Dict[Tuple[str, str, str, str], datetime] = {}
+            self._last_seen_bar_time: Dict[str, str] = {}
+            self._ticker_display: Dict[Tuple[str, str], str] = {}
+        except BaseException:
+            if not self.shutdown():
+                raise RuntimeError('初始化中止且退出清理未完成，请检查最终保存错误')
+            raise
 
     def _log(self, text: str) -> None:
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {text}", flush=True)
 
-    def _signal_key(self, signal: SignalResult, side: str, pool_id: str) -> Tuple[str, str, str, str]:
-        return signal.ts_code, signal.bar_time, side, pool_id
+    def shutdown(self) -> bool:
+        """Stop consumers, then shared producer; attempt every cleanup step."""
+        self._stop_requested.set()
+        errors = []
+        for resource, label in [(getattr(self, 'seal_monitor', None), '封单监控'),
+                                (getattr(self, 'data_source', None), '行情及最终保存')]:
+            if resource is not None:
+                try:
+                    if resource.stop() is not True:
+                        errors.append(f'{label}未确认正常停止')
+                except Exception as exc:
+                    errors.append(f'{label}停止失败: {exc}')
+        for error in errors:
+            self._log(f'退出清理失败: {error}')
+        return not errors
+
+    def _signal_key(self, signal: SignalResult, side: str, pool_id: str) -> Tuple[str, str, str, str, str]:
+        bar_time = datetime.fromisoformat(signal.bar_time).isoformat()
+        return signal.ts_code, self.config.min_freq, bar_time, side, pool_id
 
     def _pass_cooldown(self, signal: SignalResult, side: str, pool_id: str) -> bool:
         cooldown_minutes = self.config.signal_cooldown_minutes
         if cooldown_minutes <= 0:
             return True
-        key = (signal.ts_code, side, pool_id)
+        key = (signal.ts_code, self.config.min_freq, side, pool_id)
         now = datetime.now()
         last = self._last_sent_at.get(key)
         if last is None:
@@ -386,7 +415,9 @@ class QuantAlertApp:
         return (now - last) >= timedelta(minutes=cooldown_minutes)
 
     def _scan_once(self) -> Tuple[List[AlertItem], bool]:
+        from signal_policy import candidate_notice_allowed
         alerts: List[AlertItem] = []
+        queued = set()
         saw_new_bar = False
         loaded_any = False
 
@@ -401,7 +432,11 @@ class QuantAlertApp:
                 ts_code = ticker.ts_code
                 self._ticker_display[(pool.pool_id, ts_code)] = ticker.display
                 try:
-                    min_df = self.data_source.get_minute_bars(ts_code=ts_code)
+                    market_state = None
+                    if hasattr(self.data_source, 'get_minute_snapshot'):
+                        min_df, market_state = self.data_source.get_minute_snapshot(ts_code=ts_code)
+                    else:
+                        min_df = self.data_source.get_minute_bars(ts_code=ts_code)
                     if min_df is None or min_df.empty:
                         self._log(f"{ts_code}: 无分时数据")
                         continue
@@ -438,6 +473,21 @@ class QuantAlertApp:
                         f"底={signal.bottom_fishing} 顶={signal.top_escape}"
                     )
 
+                    # Snapshot quality travels with the exact strategy input.
+                    # Keep raw observations even when data is stale/unknown.
+                    observations = record_latest_signal(
+                        self.signal_journal, signal,
+                        observed_at=datetime.fromisoformat(market_state.observed_at) if market_state else datetime.now().astimezone(),
+                        timeframe=self.config.min_freq, scope=pool.pool_id,
+                        strategy_revision=self._strategy_revision,
+                        market_state=market_state,
+                    )
+
+                    eligible = {r.signal_type for r in observations if candidate_notice_allowed(r, market_state)}
+                    if not eligible:
+                        self._log(f'[{pool.display_name}] {ts_code}: 无可提醒的当前候选或观察质量不足；仅保留原始观察')
+                        continue
+
                     candidates: List[Tuple[str, str, bool]] = [
                         ("BOTTOM", "底", signal.bottom_fishing),
                         ("BUY", "B", signal.buy_b and not signal.bottom_fishing and not signal.buy_jb),
@@ -449,11 +499,17 @@ class QuantAlertApp:
                     for side, label, active in candidates:
                         if not active:
                             continue
-                        if self._signal_key(signal, side, pool.pool_id) in self._sent_cache:
+                        policy_type = {'BUY': 'BUY_B', 'SELL': 'SELL_S',
+                                       'BOTTOM': 'BOTTOM_FISHING', 'TOP': 'TOP_ESCAPE'}.get(side, side)
+                        if policy_type not in eligible:
+                            continue
+                        key = self._signal_key(signal, side, pool.pool_id)
+                        if key in self._sent_cache or key in queued:
                             continue
                         if not self._pass_cooldown(signal, side, pool.pool_id):
                             continue
                         alerts.append(AlertItem(signal=signal, side=side, label=label, pool_id=pool.pool_id))
+                        queued.add(key)
                 except Exception as exc:
                     self._log(f"[{pool.display_name}] {ts_code}: 扫描失败 -> {exc}")
 
@@ -476,7 +532,8 @@ class QuantAlertApp:
 
         for item in alerts:
             label = self._ticker_display.get((item.pool_id, item.signal.ts_code), item.signal.ts_code)
-            lines.append(f"{label}  {label_map.get(item.side, item.label)}")
+            policy_type = {"BOTTOM": "BOTTOM_FISHING", "TOP": "TOP_ESCAPE"}.get(item.side, item.side)
+            lines.append(f"{label}  {label_map.get(item.side, item.label)} {format_signal_notice(policy_type)}")
 
         return "\n".join(lines).strip() + "\n"
 
@@ -536,7 +593,7 @@ class QuantAlertApp:
         fetch_session_active = False
         poll_sleep_seconds = 60.0 / self.config.poll_interval_per_minutes
 
-        while True:
+        while not self._stop_requested.is_set():
             now = datetime.now()
             in_fetch_window = True
             if self.session_guard is not None:
@@ -555,7 +612,7 @@ class QuantAlertApp:
                     ) >= timedelta(minutes=self.config.heartbeat_interval_minutes):
                         self._log(f"--- 心跳检测正常（休市：{self.session_guard.status_message(now)}）---")
                         last_heartbeat_at = now
-                    time.sleep(self.session_guard.seconds_until_fetch_window(now))
+                    self._stop_requested.wait(self.session_guard.seconds_until_fetch_window(now))
                     continue
 
             alerts, saw_new_bar = self._scan_once()
@@ -575,7 +632,7 @@ class QuantAlertApp:
                         "JS": sum(1 for x in pool_alerts if x.side == "SELL_JS"),
                     }
                     count_text = " ".join(f"{k}={v}" for k, v in counts.items() if v > 0)
-                    subject = f"{self.config.subject_prefix} [{pool.display_name}] {count_text}".strip()
+                    subject = f"{self.config.subject_prefix} [候选观察] [{pool.display_name}] {count_text}".strip()
                     content = self._build_email_content(pool_alerts)
                     sent_any = self._push_alerts(pool_alerts, subject, content, pool.pool_id) or sent_any
 
@@ -584,7 +641,7 @@ class QuantAlertApp:
 
                 for item in alerts:
                     self._sent_cache.add(self._signal_key(item.signal, item.side, item.pool_id))
-                    self._last_sent_at[(item.signal.ts_code, item.side, item.pool_id)] = datetime.now()
+                    self._last_sent_at[(item.signal.ts_code, self.config.min_freq, item.side, item.pool_id)] = datetime.now()
             elif saw_new_bar:
                 self._log("本轮无新信号，不发送通知")
 
@@ -594,18 +651,34 @@ class QuantAlertApp:
                     self._log("--- 心跳检测正常 ---")
                     last_heartbeat_at = now
 
-            time.sleep(poll_sleep_seconds)
+            self._stop_requested.wait(poll_sleep_seconds)
 
 
 def main() -> int:
     load_dotenv(".env")
     config = _build_config()
-    app = QuantAlertApp(config)
+    stop_event = Event()
+    previous = {}
+    app = None
+    result = 0
+    def request_stop(signum, frame):
+        stop_event.set()
     try:
+        for signum in (signal.SIGINT, signal.SIGTERM):
+            previous[signum] = signal.signal(signum, request_stop)
+        app = QuantAlertApp(config, stop_event=stop_event)
         app.run_forever()
     except KeyboardInterrupt:
         print("已手动停止。")
-        return 0
+    finally:
+        try:
+            if app is not None and not app.shutdown():
+                print('退出失败：部分资源或最新K线未确认完成保存。', flush=True)
+                result = 1
+        finally:
+            for signum, handler in previous.items():
+                signal.signal(signum, handler)
+    return result
 
 
 if __name__ == "__main__":
